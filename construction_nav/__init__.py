@@ -20,6 +20,8 @@ dynamics    : unicycle and bicycle integrators.
 zones       : static high-risk zones and hazard potentials.
 env         : scene generation and the closed-loop simulation.
 metrics     : ADE / FDE, control-barrier terms, and the navigation cost J.
+evaluate    : open-loop predictor evaluation (ADE / FDE vs horizon and M).
+data        : rollout dataset generation for the learned predictors.
 predict     : trajectory predictors (constant velocity, diffusion, ...).
 planner     : robot policies (fixed-radius baseline, joint planner, ...).
 robotarium  : bridge to the Robotarium Python simulator.

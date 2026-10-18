@@ -16,24 +16,27 @@ The design follows the proposal's sections:
 | 2 | Problem formulation, Eqs. (1)–(3) | `metrics.py`, `config.py` |
 | 3 | Environment simulation | `env.py`, `entities.py`, `graph.py`, `zones.py`, `dynamics.py` |
 | 4 | Joint predictor + planner (MotionDiffuser-style) | `predict/`, `planner/` |
-| 5 | Evaluation, baselines, ablations | `evaluate` CLI (Slice 3), `render_trials.py` |
+| 5 | Evaluation, baselines, ablations | `evaluate.py`, `render_metrics.py`, `scripts/benchmark.py` |
 | — | Robotarium validation | `robotarium/` |
 
 ## Status
 
-Development proceeds in three vertical slices. **Slice 1 is complete**:
+Development proceeds in three vertical slices. **Slices 1 and 2 are complete**:
 
 - Scale-invariant worksite generator (graph, workstations, high-risk zones).
 - Heterogeneous closed-loop simulation (unicycle humans, bicycle vehicles,
   working/moving state machine, social forces, FOV/blindspot sensing).
 - Metrics: ADE / FDE (Eq. 1), barrier terms `h_S`/`h_C` (Eq. 2), cost `J` (Eq. 3).
-- Predictor interface + **constant-velocity** baseline.
+- Predictors: **constant velocity**, a **reduced Trajectron++** (RNN + discrete
+  CVAE), and a **MotionDiffuser-style conditional diffusion** model, both jointly
+  over all agents *and* the robot.
 - Planner interface + **fixed-radius (perfect-knowledge)** baseline.
+- Open-loop evaluation harness and a **benchmark of ADE/FDE vs horizon `H` and
+  agent count `M`**.
 - Robotarium bridge (all entities as Robotarium robots) and social-navigation demos.
-- Static + animated rendering, and a test suite (54 tests).
+- Static + animated rendering, and a test suite.
 
-Slices 2 and 3 (learned diffusion predictor, reduced Trajectron++ baseline,
-joint planner, evaluation sweeps and ablations) are described in
+Slice 3 (joint planner, `J`-cost sweeps and ablations) is described in
 [Roadmap](#roadmap).
 
 ## Install
@@ -45,7 +48,12 @@ python -m venv .venv
 .venv/bin/pip install "git+https://github.com/robotarium/robotarium_python_simulator"
 ```
 
-Learned predictors (Slice 2+) additionally need PyTorch: `pip install -e ".[ml]"`.
+Learned predictors need PyTorch:
+
+```bash
+.venv/bin/pip install -e ".[ml]"        # CPU wheel, or:
+.venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
+```
 
 ## Quick start
 
@@ -58,6 +66,12 @@ python -m construction_nav trial --seed 0 --agents 7 --planner fixed-radius --an
 
 # MotionDiffuser-style schematic figures
 python -m construction_nav predictions --seed 0
+
+# Train the learned predictors and plot their training curves
+python scripts/train.py --agents 7 --epochs 80
+
+# Benchmark ADE/FDE vs horizon H and agent count M (writes figures/benchmark*.png)
+python scripts/benchmark.py --agents 5 7 9 --epochs 80
 
 # Social-navigation demos on the Robotarium
 python -m construction_nav robotarium --agents 5 --json figures/robotarium_demo.json
@@ -118,6 +132,50 @@ their path** (Section 3), while every agent carries a rear *blindspot* cone.
 - `J = T_travel + lambda_1 * sum_m integral max(0, -h_C^m) dt + lambda_2 * T_freeze`
   (Eq. 3) via `metrics.navigation_cost` / `summarize_trial`.
 
+## Predictors
+
+All learned predictors consume the shared `Observation` (agent histories, poses,
+kinds, states) and return `PredictorOutput(mean, samples, weights)` for the `M`
+agents over a horizon `H`. They are **joint** over `N = M + 1` entities — the
+agents *and* the robot — and **scale-free**: positions are normalised by the arena,
+so one model covers the 60 m site and the miniature Robotarium site.
+
+### Dataset (`data/`)
+
+`data.generate` rolls out randomized scenes under the nominal policy and slices
+each rollout into observation windows for all `N` entities:
+
+```
+hist    (N, T, 2)   past positions / arena
+future  (N, H, 2)   true future positions / arena
+kind    (N,)        human / vehicle / robot
+state   (N,)        working / moving
+```
+
+Train/val/test datasets use disjoint seeds, and generation is pure `numpy` so the
+core package keeps working without PyTorch.
+
+### Diffusion (`predict/diffusion.py`)
+
+A deliberately small MotionDiffuser: a GRU history encoder (history + last
+position + velocity + kind/state embeddings) feeding a transformer block over the
+`N` entity tokens — that self-attention is what makes the forecast *joint* — and a
+DDIM sampler returning `K` samples. Three design choices matter on a CPU budget:
+
+- **x0-prediction** (not noise-prediction), which is far more stable for a small
+  model and few sampling steps;
+- a **cosine noise schedule**, so the final step really is pure noise;
+- the network diffuses the **residual over a constant-velocity prior**, so it
+  starts from the CV baseline's accuracy and spends its capacity on the
+  interaction-driven corrections that make the forecast multimodal.
+
+### Reduced Trajectron++ (`predict/trajectron.py`)
+
+An in-repo, much smaller Trajectron++: the same joint encoder, a **discrete
+conditional VAE** (categorical latent over interaction modes) trained with
+reconstruction + categorical KL, and a per-entity decoder. Inference returns one
+trajectory per mode with the prior's mode probabilities as weights.
+
 ## Baselines
 
 - **Constant velocity** (`predict.ConstantVelocityPredictor`) — finite-difference
@@ -130,6 +188,33 @@ their path** (Section 3), while every agent carries a rear *blindspot* cone.
   the planner baseline that isolates the value of the learned predictor plus
   planner. (`use_oracle=False` swaps the oracle for the constant-velocity
   predictor.)
+
+## Evaluation
+
+`evaluate.evaluate_predictor` scores any predictor on closed-loop rollouts:
+the environment is advanced under the nominal policy, the predictor is asked to
+forecast at each step, and its forecast is compared with the positions the rollout
+actually visited (open-loop evaluation, exactly how the training data was built).
+Multimodal predictors are scored with best-of-`K` (`min_ade` / `min_fde`).
+
+`scripts/benchmark.py` sweeps the **forecast horizon `H`** and the **agent count
+`M`**, training one diffusion and one Trajectron++ model per `M` and scoring both
+against the constant-velocity baseline. It writes `figures/benchmark_horizon.png`,
+`figures/benchmark_agents.png`, and `figures/benchmark.json`.
+
+Representative numbers (held-out test scenes, best-of-`K`, metres, `M = 7`):
+
+| model | ADE `H=1` | ADE `H=4` | ADE `H=16` | FDE `H=16` |
+|---|---|---|---|---|
+| constant velocity | 0.15 | 0.48 | 2.71 | 5.97 |
+| trajectron++ (reduced) | 0.40 | 0.78 | 2.68 | 5.30 |
+| diffusion (`K=6`) | 0.58 | 0.62 | **2.28** | **4.59** |
+
+Two trends stand out. Constant velocity wins at **short** horizons (the motion is
+smooth and nearly linear at `dt = 0.5 s`), while the **joint** models win at long
+horizons and as the crowd grows `M = 5 -> 9`, where interaction structure matters
+most. The diffusion model is best or tied-best at `H = 16` for every `M` tested,
+and improves relative to the baselines as `M` increases.
 
 ## Robotarium
 
@@ -171,6 +256,9 @@ the Robotarium validation for each case.
 - `pipeline.{png,pdf}` — MotionDiffuser pipeline schematic.
 - `diffusion_sequence.{png,pdf}` — reverse-diffusion schematic.
 - `trial.{png,pdf,gif}` — closed-loop trial paths / animation.
+- `benchmark_horizon.{png,pdf}` — ADE/FDE vs horizon for every model.
+- `benchmark_agents.{png,pdf}` — ADE/FDE vs agent count `M`.
+- `training_curves.{png,pdf}` — diffusion and Trajectron++ loss curves.
 - `demo_*.{png,pdf,gif}` — Robotarium social-navigation cases.
 
 ## Tests
@@ -183,9 +271,10 @@ python -m pytest -m slow         # end-to-end Robotarium smoke test
 Coverage includes dynamics integration, scene invariants and scale invariance,
 environment determinism and the working/moving state machine, social-force
 behaviour, ADE/FDE/barrier/cost closed forms, predictor shapes and velocity
-estimation, planner goal-reaching and static-obstacle avoidance, Robotarium
-coordinate mapping and demo seed ranking, and the Robotarium collision/boundary
-validation.
+estimation, dataset generation and round-trip, the learned predictors (train,
+predict, save/load) and the CV prior, planner goal-reaching and static-obstacle
+avoidance, Robotarium coordinate mapping and demo seed ranking, and the Robotarium
+collision/boundary validation. Tests that need PyTorch skip cleanly without it.
 
 ## Layout
 
@@ -198,31 +287,29 @@ construction_nav/
   zones.py          high-risk zones and hazard potentials
   env.py            generate_scene + ConstructionEnv (closed loop)
   metrics.py        ADE / FDE / barriers / cost J
+  evaluate.py       open-loop predictor evaluation (ADE/FDE vs H, M)
   render.py         static scene rendering
   render_anim.py    rollout animation (GIF / MP4)
   render_trials.py  trajectory plots and metric charts
+  render_metrics.py benchmark charts (horizon / agent sweeps, training curves)
   render_predictions.py  MotionDiffuser-style schematics
-  predict/          predictor interface + constant-velocity baseline
+  data/             rollout dataset generation + torch Dataset wrappers
+  predict/          predictor interface, constant velocity, diffusion, Trajectron++
   planner/          planner interface + fixed-radius baseline
   robotarium/       arena mapping, bridge, demos
   cli.py            `python -m construction_nav ...`
-scripts/            figure/demo entry points
+scripts/            train / benchmark / figure / demo entry points
 tests/              pytest suite
+checkpoints/        trained model weights (git-ignored)
 ```
 
 ## Roadmap
 
-**Slice 2 — predictors.** Diffusion dataset from rollouts; a scaled-down
-PyTorch conditional diffusion predictor (MotionDiffuser-style, jointly over all
-agents including the robot) with real ADE/FDE vs horizon `H` and agent count `M`;
-a reduced in-repo Trajectron++ (RNN + discrete CVAE) baseline; training and
-benchmark scripts.
-
 **Slice 3 — joint planner + evaluation.** A joint predictor+planner with safety
 constraints injected into reverse diffusion; per-type `D_S`/`D_C` hard
-constraints; randomized-trial sweeps (ADE/FDE vs `H`, `M`), ablations (predictor
-quality vs planner; `lambda_1` sweep), failure cases, and the final Robotarium
-social-navigation cases.
+constraints; randomized-trial sweeps of the cost `J` (Eq. 3); ablations
+(predictor quality vs planner; `lambda_1` sweep); failure cases, and the final
+Robotarium social-navigation cases.
 
 ## Notes and limitations
 
@@ -234,3 +321,10 @@ social-navigation cases.
 - Full-scale MotionDiffuser replication (and the optional speculative-decoding
   experiment) is out of scope for the course timeline; the diffusion model is
   deliberately small and CPU-trainable.
+- Constant velocity is a strong baseline at short horizons on this data (smooth,
+  near-constant-velocity motion at `dt = 0.5 s`), so the learned models are most
+  useful at longer horizons and for the multimodal interaction cases the planner
+  actually consumes. The benchmark reports both regimes rather than cherry-picking.
+- The reduced Trajectron++ is a like-for-like multimodal baseline, not a faithful
+  reproduction of the published architecture (no graph attention or depthwise
+  encoders).

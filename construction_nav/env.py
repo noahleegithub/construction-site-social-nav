@@ -405,6 +405,7 @@ class Observation:
     robot_pos: np.ndarray                 # (2,)
     robot_theta: float
     robot_history: np.ndarray             # (T, 2)
+    arena: float = C.ARENA_SIZE           # site side length, metres (for scaling)
 
 
 # ---------------------------------------------------------------------------
@@ -507,6 +508,7 @@ class ConstructionEnv:
             robot_pos=self.robot.pos.copy(),
             robot_theta=self.robot.theta,
             robot_history=robot_history,
+            arena=self.scene.arena_size,
         )
 
     # -- stepping ---------------------------------------------------------
