@@ -1,0 +1,7 @@
+numpy
+matplotlib
+cvxopt
+# The Robotarium simulator is not on PyPI; install it from source:
+#   pip install "git+https://github.com/robotarium/robotarium_python_simulator"
+# Learned predictors (Slice 2+) additionally require:
+#   torch
