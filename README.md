@@ -15,13 +15,13 @@ The design follows the proposal's sections:
 |---|---|---|
 | 2 | Problem formulation, Eqs. (1)–(3) | `metrics.py`, `config.py` |
 | 3 | Environment simulation | `env.py`, `entities.py`, `graph.py`, `zones.py`, `dynamics.py` |
-| 4 | Joint predictor + planner (MotionDiffuser-style) | `predict/`, `planner/` |
-| 5 | Evaluation, baselines, ablations | `evaluate.py`, `render_metrics.py`, `scripts/benchmark.py` |
+| 4 | Joint predictor + planner (MotionDiffuser-style) | `predict/`, `planner/joint.py` |
+| 5 | Evaluation, baselines, ablations | `evaluate.py`, `trials.py`, `render_metrics.py`, `scripts/` |
 | — | Robotarium validation | `robotarium/` |
 
 ## Status
 
-Development proceeds in three vertical slices. **Slices 1 and 2 are complete**:
+Development proceeds in three vertical slices. **All three are complete**:
 
 - Scale-invariant worksite generator (graph, workstations, high-risk zones).
 - Heterogeneous closed-loop simulation (unicycle humans, bicycle vehicles,
@@ -30,14 +30,16 @@ Development proceeds in three vertical slices. **Slices 1 and 2 are complete**:
 - Predictors: **constant velocity**, a **reduced Trajectron++** (RNN + discrete
   CVAE), and a **MotionDiffuser-style conditional diffusion** model, both jointly
   over all agents *and* the robot.
-- Planner interface + **fixed-radius (perfect-knowledge)** baseline.
+- **Joint predictor + planner** with multimodal prediction, safety constraints
+  projected **inside reverse diffusion**, a per-type `D_S`/`D_C` hard-constraint
+  filter, and the `oracle` perfect-knowledge variant.
 - Open-loop evaluation harness and a **benchmark of ADE/FDE vs horizon `H` and
   agent count `M`**.
-- Robotarium bridge (all entities as Robotarium robots) and social-navigation demos.
+- Randomized-trial **planner evaluation**: comparison against the fixed-radius
+  baseline, a `lambda_1` sweep, and a failure/hard-case study.
+- Robotarium bridge (all entities as Robotarium robots) and social-navigation demos,
+  with either the fixed-radius or the joint planner.
 - Static + animated rendering, and a test suite.
-
-Slice 3 (joint planner, `J`-cost sweeps and ablations) is described in
-[Roadmap](#roadmap).
 
 ## Install
 
@@ -62,7 +64,7 @@ Learned predictors need PyTorch:
 python -m construction_nav scene --seed 0 --agents 7
 
 # Run one closed-loop trial and plot the paths (add --animate for a GIF)
-python -m construction_nav trial --seed 0 --agents 7 --planner fixed-radius --animate
+python -m construction_nav trial --seed 0 --agents 7 --planner joint --animate
 
 # MotionDiffuser-style schematic figures
 python -m construction_nav predictions --seed 0
@@ -73,8 +75,11 @@ python scripts/train.py --agents 7 --epochs 80
 # Benchmark ADE/FDE vs horizon H and agent count M (writes figures/benchmark*.png)
 python scripts/benchmark.py --agents 5 7 9 --epochs 80
 
-# Social-navigation demos on the Robotarium
-python -m construction_nav robotarium --agents 5 --json figures/robotarium_demo.json
+# Evaluate the planners: comparison, lambda_1 sweep, failure cases
+python scripts/evaluate_planners.py --agents 7 --trials 16
+
+# Social-navigation demos on the Robotarium (--planner joint for the learned policy)
+python -m construction_nav robotarium --agents 5 --planner joint --json figures/robotarium_demo.json
 
 # Regenerate every static figure at once
 python scripts/make_figures.py --out-dir figures --animate
@@ -176,6 +181,34 @@ conditional VAE** (categorical latent over interaction modes) trained with
 reconstruction + categorical KL, and a per-entity decoder. Inference returns one
 trajectory per mode with the prior's mode probabilities as weights.
 
+## Planner: joint predictor + planner
+
+`planner/joint.py` implements the proposal's coupled predictor+planner. At every
+step it:
+
+1. **Predicts** the agents with the multimodal predictor (constant velocity,
+   reduced Trajectron++, or diffusion). In `safety_diffusion` mode the diffusion
+   sampler is *conditioned* on the robot's intended route plan — the joint sample
+   is inpainted so the robot row is pinned and the agents are generated
+   conditioned on it — and the robot's rows are projected onto the hard-constraint
+   safe set **inside reverse diffusion**. Safety is therefore injected into the
+   sampling process rather than checked only afterwards, which is the
+   MotionDiffuser-style coupling.
+2. **Proposes** a small set of local manoeuvres by integrating the unicycle along
+   the graph route at several speed scales and heading offsets.
+3. **Scores** each manoeuvre with the Eq. (3) ingredients against every predicted
+   mode and the *per-type* `D_S` / `D_C`: a progress term (travel-time proxy),
+   `lambda_1 * sum max(0, -h_C)`, `lambda_2 * T_freeze`, and a hard-constraint
+   feasibility test `h_S >= 0` in every mode with non-zero weight.
+4. **Filters** the chosen command through a reactive clearance guard that scales
+   the speed to zero as the clearance to any agent vanishes, enforcing the hard
+   constraint against the *real* state even when the forecast is wrong. If no
+   manoeuvre is feasible it maximises clearance instead of progress.
+
+`oracle=True` replaces the predictor with perfect future knowledge, giving the
+proposal's perfect-knowledge planner; combined with the `predictor=` variants this
+is exactly the "predictor quality vs planner" ablation.
+
 ## Baselines
 
 - **Constant velocity** (`predict.ConstantVelocityPredictor`) — finite-difference
@@ -216,6 +249,36 @@ horizons and as the crowd grows `M = 5 -> 9`, where interaction structure matter
 most. The diffusion model is best or tied-best at `H = 16` for every `M` tested,
 and improves relative to the baselines as `M` increases.
 
+### Planner evaluation
+
+`scripts/evaluate_planners.py` runs each planner on the same randomized sites
+(out-of-sample seeds, `M = 7`) and reports Eq. (3). 16 trials each:
+
+| planner | success | collision steps | `J` | travel (s) | intrusion |
+|---|---|---|---|---|---|
+| fixed-radius (oracle) | 100% | 0 | 36.59 | 34.7 | 1.91 |
+| joint (oracle) | 100% | 0 | **35.28** | 35.1 | **0.16** |
+| joint (constant velocity) | 100% | 4 | 36.61 | 35.3 | 1.27 |
+| joint (trajectron++, reduced) | 100% | 2 | 35.85 | 35.1 | 0.75 |
+| joint (diffusion) | 100% | 1 | 35.89 | 35.1 | 0.67 |
+| joint (diffusion + safety diffusion) | 100% | 1 | 35.86 | 35.0 | 0.71 |
+
+Every planner reaches the goal, so the differences are all in safety and cost.
+The **predictor-quality ablation** is the three `joint (learned)` rows: a weaker
+forecast (constant velocity) collides and intrudes more, and the ordering
+constant-velocity → Trajectron++ → diffusion matches the long-horizon (`H = 16`)
+ADE ordering of the predictors, i.e. forecast quality transfers to planner
+safety. The **planner ablation** is the perfect-knowledge `joint (oracle)` row:
+the learned-diffusion planner matches the oracle's cost while the oracle keeps
+the largest margin. The fixed-radius baseline reaches the goal but with ~3x the
+intrusion of the prediction-based planner.
+
+Sweeping `lambda_1` (diffusion planner, with and without the reactive safety
+filter) makes the trade-off explicit: going from `lambda_1 = 0` to `5` cuts the
+intrusion integral from `0.77` to `0.40` and removes the remaining collision
+steps, at the price of `J` rising from `35.5` to `37.3` (about +1.5 s of travel
+time) -- the soft social cost is bought with time, as Eq. (3) intends.
+
 ## Robotarium
 
 `construction_nav.robotarium` maps the worksite into the Robotarium arena with a
@@ -244,12 +307,14 @@ Demo cases are made reproducible and meaningful rather than arbitrary: seeds are
 encounter of the requested kind) and then confirmed on the Robotarium, taking the
 first seed that completes safely. The shipped `figures/robotarium_demo.json`
 records the chosen seed, the minimum encounter distance, the site metrics, and
-the Robotarium validation for each case.
+the Robotarium validation for each case. Pass `--planner joint` to drive the robot
+with the joint planner instead of the fixed-radius baseline.
 
 ## Figures
 
-`figures/` is regenerated with `scripts/make_figures.py` and
-`scripts/robotarium_demo.py`:
+`figures/` is regenerated with `scripts/make_figures.py`,
+`scripts/train.py`, `scripts/benchmark.py`, `scripts/evaluate_planners.py` and
+`python -m construction_nav robotarium`:
 
 - `scene.{png,pdf}` — static worksite with zoning, sensing, and routes.
 - `scene_arena.png` — arena-only backdrop used behind overlays.
@@ -259,6 +324,9 @@ the Robotarium validation for each case.
 - `benchmark_horizon.{png,pdf}` — ADE/FDE vs horizon for every model.
 - `benchmark_agents.{png,pdf}` — ADE/FDE vs agent count `M`.
 - `training_curves.{png,pdf}` — diffusion and Trajectron++ loss curves.
+- `planner_comparison.{png,pdf}` — success, cost `J`, intrusion, travel time.
+- `lambda_sweep.{png,pdf}` — cost / intrusion / travel time vs `lambda_1`.
+- `failure_cases.{png,pdf}` — failure / hard cases for the joint planner.
 - `demo_*.{png,pdf,gif}` — Robotarium social-navigation cases.
 
 ## Tests
@@ -273,8 +341,10 @@ environment determinism and the working/moving state machine, social-force
 behaviour, ADE/FDE/barrier/cost closed forms, predictor shapes and velocity
 estimation, dataset generation and round-trip, the learned predictors (train,
 predict, save/load) and the CV prior, planner goal-reaching and static-obstacle
-avoidance, Robotarium coordinate mapping and demo seed ranking, and the Robotarium
-collision/boundary validation. Tests that need PyTorch skip cleanly without it.
+avoidance, the joint planner (valid commands, oracle goal-reaching, the reactive
+guard, safety-in-reverse-diffusion projection) and the trial harness, Robotarium
+coordinate mapping and demo seed ranking, and the Robotarium collision/boundary
+validation. Tests that need PyTorch skip cleanly without it.
 
 ## Layout
 
@@ -288,28 +358,32 @@ construction_nav/
   env.py            generate_scene + ConstructionEnv (closed loop)
   metrics.py        ADE / FDE / barriers / cost J
   evaluate.py       open-loop predictor evaluation (ADE/FDE vs H, M)
+  trials.py         randomized-trial planner evaluation (cost J, ablations)
   render.py         static scene rendering
   render_anim.py    rollout animation (GIF / MP4)
   render_trials.py  trajectory plots and metric charts
-  render_metrics.py benchmark charts (horizon / agent sweeps, training curves)
+  render_metrics.py benchmark / planner charts and training curves
   render_predictions.py  MotionDiffuser-style schematics
   data/             rollout dataset generation + torch Dataset wrappers
   predict/          predictor interface, constant velocity, diffusion, Trajectron++
-  planner/          planner interface + fixed-radius baseline
+  planner/          planner interface, fixed-radius baseline, joint planner
   robotarium/       arena mapping, bridge, demos
   cli.py            `python -m construction_nav ...`
-scripts/            train / benchmark / figure / demo entry points
+scripts/            train / benchmark / planner-eval / figure / demo entry points
 tests/              pytest suite
 checkpoints/        trained model weights (git-ignored)
 ```
 
 ## Roadmap
 
-**Slice 3 — joint planner + evaluation.** A joint predictor+planner with safety
-constraints injected into reverse diffusion; per-type `D_S`/`D_C` hard
-constraints; randomized-trial sweeps of the cost `J` (Eq. 3); ablations
-(predictor quality vs planner; `lambda_1` sweep); failure cases, and the final
-Robotarium social-navigation cases.
+The three vertical slices in the proposal are implemented. Natural next steps,
+deliberately left out of the course timeline:
+
+- Full-scale MotionDiffuser (per-agent transformers, latent maps) and the optional
+  speculative-decoding experiment.
+- A CMOT->BEV map encoder so the robot reasons over the raw worksite image.
+- Trajectron++'s graph attention and depthwise encoders for a faithful baseline.
+- On-hardware Robotarium deployment (the bridge already runs the same loop).
 
 ## Notes and limitations
 
@@ -328,3 +402,13 @@ Robotarium social-navigation cases.
 - The reduced Trajectron++ is a like-for-like multimodal baseline, not a faithful
   reproduction of the published architecture (no graph attention or depthwise
   encoders).
+- The joint planner's hard-constraint test is evaluated against the *predicted*
+  modes (an expected-value `h_S >= 0`), with the reactive clearance guard covering
+  the true state; a safety filter over measured state (a true control barrier
+  function) would harden this further.
+- On the planner test set the joint planner never outright failed (timeout or
+  sustained collision), so `figures/failure_cases.png` shows the **hardest** cases
+  -- the trials with the largest intrusion, where an agent cut across the robot's
+  route -- rather than catastrophic failures. Safety-diffusion conditioning
+  changed little on these sites because the manoeuvre filter already dominates;
+  it is most useful in denser scenes where the nominal plan itself is unsafe.

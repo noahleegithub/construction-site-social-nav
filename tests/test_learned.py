@@ -103,9 +103,6 @@ def test_evaluate_constant_velocity_returns_finite_scores():
 # ---------------------------------------------------------------------------
 
 
-torch = pytest.importorskip("torch")
-
-
 @pytest.fixture(scope="module")
 def tiny_data():
     return (
@@ -115,6 +112,7 @@ def tiny_data():
 
 
 def test_diffusion_train_and_predict(tiny_data):
+    pytest.importorskip("torch")
     from construction_nav.env import ConstructionEnv
     from construction_nav.predict.diffusion import DiffusionPredictor, train_diffusion
 
@@ -138,6 +136,7 @@ def test_diffusion_train_and_predict(tiny_data):
 
 
 def test_trajectron_train_and_predict(tiny_data):
+    pytest.importorskip("torch")
     from construction_nav.env import ConstructionEnv
     from construction_nav.predict.trajectron import (
         TrajectronPredictor,
@@ -163,6 +162,7 @@ def test_trajectron_train_and_predict(tiny_data):
 
 
 def test_diffusion_predictor_save_load(tiny_data, tmp_path):
+    pytest.importorskip("torch")
     from construction_nav.predict.diffusion import (
         DiffusionPredictor,
         load_predictor,
@@ -185,6 +185,7 @@ def test_diffusion_predictor_save_load(tiny_data, tmp_path):
 
 
 def test_cv_prior_is_linear_extrapolation():
+    torch = pytest.importorskip("torch")
     from construction_nav.predict.diffusion import cv_prior, residual_target
 
     # A perfectly linear history means the residual over the CV prior is zero.

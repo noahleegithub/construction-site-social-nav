@@ -6,19 +6,19 @@
     "num_agents": 5,
     "arena": 3.0,
     "encounter_kind": "any",
-    "min_encounter": 0.32368298446242777,
+    "min_encounter": 0.3074351626624945,
     "site": {
       "reached": true,
-      "t": 36.0,
-      "travel_time": 35.5,
-      "intrusion_integral": 0.48321782800902946,
+      "t": 37.5,
+      "travel_time": 37.0,
+      "intrusion_integral": 0.4830133390219208,
       "freeze_time": 0.0,
       "n_collision_steps": 0
     },
     "robotarium": {
       "reached": true,
-      "t": 34.38600000000061,
-      "steps": 1043,
+      "t": 34.089000000000595,
+      "steps": 1034,
       "validation": {
         "robots_too_close": 0,
         "robots_outside_boundaries": 0,
@@ -35,23 +35,23 @@
   {
     "case": "human_encounter",
     "description": "Robot passes close to a human worker (needs yielding).",
-    "seed": 3,
+    "seed": 7,
     "num_agents": 5,
     "arena": 3.0,
     "encounter_kind": "human",
-    "min_encounter": 0.2532499709874396,
+    "min_encounter": 0.3883929083286503,
     "site": {
       "reached": true,
-      "t": 39.5,
-      "travel_time": 39.0,
-      "intrusion_integral": 3.7152654652953307,
+      "t": 38.0,
+      "travel_time": 37.5,
+      "intrusion_integral": 1.8504590968100225,
       "freeze_time": 0.0,
       "n_collision_steps": 0
     },
     "robotarium": {
       "reached": true,
-      "t": 111.27600000000352,
-      "steps": 3373,
+      "t": 33.99000000000059,
+      "steps": 1031,
       "validation": {
         "robots_too_close": 0,
         "robots_outside_boundaries": 0,
@@ -68,23 +68,23 @@
   {
     "case": "vehicle_encounter",
     "description": "Robot encounters heavy machinery on a shared corridor.",
-    "seed": 7,
+    "seed": 4,
     "num_agents": 5,
     "arena": 3.0,
     "encounter_kind": "vehicle",
-    "min_encounter": 0.5613853786200367,
+    "min_encounter": 0.5230556638114557,
     "site": {
       "reached": true,
-      "t": 39.5,
-      "travel_time": 39.0,
-      "intrusion_integral": 2.1413986813221877,
-      "freeze_time": 0.0,
+      "t": 49.5,
+      "travel_time": 49.0,
+      "intrusion_integral": 3.513217849538947,
+      "freeze_time": 4.0,
       "n_collision_steps": 0
     },
     "robotarium": {
       "reached": true,
-      "t": 38.14800000000075,
-      "steps": 1157,
+      "t": 78.37500000000227,
+      "steps": 2376,
       "validation": {
         "robots_too_close": 0,
         "robots_outside_boundaries": 0,

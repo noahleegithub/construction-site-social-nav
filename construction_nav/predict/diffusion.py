@@ -129,6 +129,98 @@ def _flatten_future(x: torch.Tensor) -> torch.Tensor:
     return x.reshape(b, n, h * 2)
 
 
+def project_robot_safety(
+    robot: torch.Tensor,
+    agents: torch.Tensor,
+    ds_agents: torch.Tensor,
+    margin: float = 0.0,
+    iters: int = 2,
+) -> torch.Tensor:
+    """Push the robot rows out of every agent's collision disk.
+
+    ``robot`` is ``(K, H, 2)``, ``agents`` is ``(K, M, H, 2)`` and ``ds_agents``
+    is ``(M,)``. This is the projection onto the *hard* constraint set used as
+    classifier-style guidance inside reverse diffusion.
+    """
+    r = robot.clone()
+    need = (ds_agents + margin).view(1, -1, 1)          # (1, M, 1)
+    for _ in range(iters):
+        delta = r[:, None, :, :] - agents               # (K, M, H, 2)
+        dist = delta.norm(dim=-1, keepdim=True)         # (K, M, H, 1)
+        deficit = (need.unsqueeze(-1) - dist).clamp_min(0.0)
+        if float(deficit.max()) == 0.0:
+            break
+        r = r + (delta / dist.clamp_min(1e-6) * deficit).sum(dim=1)
+    return r
+
+
+@torch.no_grad()
+def ddim_sample_conditioned(
+    model: JointDenoiser,
+    schedule: DiffusionSchedule,
+    hist: torch.Tensor,
+    kind: torch.Tensor,
+    state: torch.Tensor,
+    robot_plan: torch.Tensor,
+    ds_agents: torch.Tensor,
+    n_samples: int,
+    n_steps: int = 10,
+    safety_margin: float = 0.0,
+    project_safety: bool = True,
+) -> torch.Tensor:
+    """Sample agent futures conditioned on a fixed robot plan (inpainting).
+
+    The robot row of the joint sample is *pinned* to ``robot_plan`` (normalised
+    ``(H, 2)``) at every reverse step, so the agent futures are generated
+    conditioned on how the agents would react to that plan. With
+    ``project_safety`` the pinned row is projected onto the hard-constraint safe
+    set at every step -- the safety constraint is injected into reverse
+    diffusion rather than checked only afterwards.
+
+    ``hist`` is ``(1, N, T, 2)``; returns absolute ``(K, N, H, 2)``.
+    """
+    b, n = hist.shape[:2]
+    assert b == 1, "conditioned sampling is defined for a single observation"
+    horizon = model.horizon
+    robot_idx = n - 1
+    dt = schedule.dt
+    pos0 = hist[:, :, -1, :]                             # (1, N, 2)
+    cv = cv_prior(hist, horizon, dt)                     # (1, N, H, 2)
+    plan = robot_plan.reshape(1, horizon, 2).expand(n_samples, horizon, 2)
+
+    hist_k = hist.expand(n_samples, n, -1, -1)
+    kind_k = kind.expand(n_samples, n)
+    state_k = state.expand(n_samples, n)
+    x = torch.randn(n_samples, n, horizon * 2, device=hist.device)
+
+    steps = torch.linspace(schedule.n_steps - 1, 0, n_steps).long()
+    for i, t in enumerate(steps):
+        tb = torch.full((n_samples,), int(t), device=hist.device)
+        ab = schedule.alpha_bar[int(t)]
+        x0 = model(x, hist_k, kind_k, state_k, tb.float() / schedule.n_steps)
+        x0 = x0.clamp(-2.0, 3.0).reshape(n_samples, n, horizon, 2)
+        absolute = x0 + cv + pos0[:, :, None, :]         # (K, N, H, 2)
+
+        # Pin the robot row to the plan and (optionally) project it to safety.
+        robot_row = plan.clone()
+        if project_safety:
+            robot_row = project_robot_safety(
+                robot_row, absolute[:, :robot_idx], ds_agents, safety_margin
+            )
+        absolute = absolute.clone()
+        absolute[:, robot_idx] = robot_row
+        x0 = (absolute - cv - pos0[:, :, None, :]).reshape(n_samples, n, horizon * 2)
+
+        if i < len(steps) - 1:
+            ab_prev = schedule.alpha_bar[int(steps[i + 1])]
+            eps = (x - ab.sqrt() * x0) / (1.0 - ab).sqrt()
+            x = ab_prev.sqrt() * x0 + (1.0 - ab_prev).sqrt() * eps
+        else:
+            x = x0
+
+    return x.reshape(n_samples, n, horizon, 2) + cv + pos0[:, :, None, :]
+
+
 @torch.no_grad()
 def ddim_sample(
     model: JointDenoiser,
@@ -285,6 +377,49 @@ class DiffusionPredictor(Predictor):
         return obs_tensors(obs, device=self.device)
 
     # -- inference ---------------------------------------------------------
+
+    def sample_joint(
+        self,
+        obs: Observation,
+        n_samples: int | None = None,
+        n_steps: int | None = None,
+        robot_plan: np.ndarray | None = None,
+        ds_agents: np.ndarray | None = None,
+        safety_margin: float = 0.0,
+    ) -> np.ndarray:
+        """Joint forecast for **all** entities, including the robot.
+
+        Returns absolute ``(K, N, H, 2)``. When ``robot_plan`` (site metres,
+        ``(H, 2)``) is given the agents are forecast *conditioned* on it
+        (inpainting); when ``ds_agents`` is also given, the robot row is projected
+        onto the hard-constraint safe set at every reverse step, i.e. the safety
+        constraint is injected into reverse diffusion.
+        """
+        n_samples = self.n_samples if n_samples is None else n_samples
+        n_steps = self.sample_steps if n_steps is None else n_steps
+        arena = float(obs.arena)
+        hist, kind, state = self._tensors(obs)
+
+        if robot_plan is None and ds_agents is None:
+            samples = ddim_sample(
+                self.model, self.schedule, hist, kind, state,
+                n_samples=n_samples, n_steps=n_steps,
+            )[0]
+        else:
+            if robot_plan is None or ds_agents is None:
+                raise ValueError("conditioned sampling needs both robot_plan and ds_agents")
+            plan = torch.as_tensor(
+                np.asarray(robot_plan, dtype=np.float32) / arena, device=self.device
+            )
+            ds = torch.as_tensor(
+                np.asarray(ds_agents, dtype=np.float32) / arena, device=self.device
+            )
+            samples = ddim_sample_conditioned(
+                self.model, self.schedule, hist, kind, state, plan, ds,
+                n_samples=n_samples, n_steps=n_steps,
+                safety_margin=safety_margin / arena,
+            )  # already (K, N, H, 2)
+        return samples.cpu().numpy() * arena
 
     def predict(self, obs: Observation) -> PredictorOutput:
         m = len(obs.agent_kind)

@@ -47,10 +47,12 @@ DEFAULT_CASES = [
 ]
 
 
-def site_trial(scene, encounter: str = "any", steps: int = 4000) -> dict:
+def site_trial(
+    scene, encounter: str = "any", steps: int = 4000, planner=None
+) -> dict:
     """Run one site-frame trial and return success + encounter statistics."""
     env = ConstructionEnv(scene)
-    planner = FixedRadiusPlanner(use_oracle=False)
+    planner = planner or FixedRadiusPlanner(use_oracle=False)
     reached = False
     min_dist = float("inf")
     for _ in range(steps):
@@ -78,6 +80,7 @@ def rank_seeds(
     n_seeds: int = 8,
     close_fraction: float = 0.45,
     exclude: set[int] | None = None,
+    planner=None,
 ) -> list[dict]:
     """Order seeds so that safe, successful, close-encounter scenarios come first.
 
@@ -89,7 +92,7 @@ def rank_seeds(
     exclude = exclude or set()
     seeds = [s for s in range(n_seeds) if s not in exclude]
     stats = [
-        site_trial(robotarium_scene(seed=seed, num_agents=num_agents), encounter)
+        site_trial(robotarium_scene(seed=seed, num_agents=num_agents), encounter, planner=planner)
         for seed in seeds
     ]
     if not stats:
@@ -122,13 +125,16 @@ def run_demo(
     seed_attempts: int = 4,
     n_seeds: int = 8,
     exclude: set[int] | None = None,
+    planner=None,
 ) -> dict:
     """Run one demo case: rank seeds, confirm on the Robotarium, then plot it."""
     ranked = rank_seeds(
-        case.encounter, case.num_agents, n_seeds=n_seeds, exclude=exclude
+        case.encounter, case.num_agents, n_seeds=n_seeds, exclude=exclude,
+        planner=planner,
     )
     if not ranked:  # every candidate seed was claimed by an earlier case
-        ranked = rank_seeds(case.encounter, case.num_agents, n_seeds=n_seeds)
+        ranked = rank_seeds(case.encounter, case.num_agents, n_seeds=n_seeds,
+                            planner=planner)
 
     scene = None
     robotarium = None
@@ -137,7 +143,7 @@ def run_demo(
     for stats in ranked[:seed_attempts]:
         candidate = robotarium_scene(seed=stats["seed"], num_agents=case.num_agents)
         result = run_robotarium_trial(
-            candidate, planner=FixedRadiusPlanner(use_oracle=False),
+            candidate, planner=planner or FixedRadiusPlanner(use_oracle=False),
             barrier_mode=barrier_mode, max_steps=max_steps,
         )
         record = (stats, candidate, result)
@@ -155,7 +161,7 @@ def run_demo(
     # mutates the poses of the scene it was given, so reusing it would start the
     # trial from post-run agent positions.
     scene = robotarium_scene(seed=stats["seed"], num_agents=case.num_agents)
-    planner = FixedRadiusPlanner(use_oracle=False)
+    planner = planner or FixedRadiusPlanner(use_oracle=False)
     paths, summary = plot_trial(scene, out_dir, name=f"demo_{case.name}", planner=planner)
     if animate:
         paths += animate_trial(

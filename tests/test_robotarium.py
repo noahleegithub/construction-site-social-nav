@@ -63,7 +63,8 @@ def test_rank_seeds_prefers_safe_close_encounters(monkeypatch):
             "travel_time": 80.0},
     }
     monkeypatch.setattr(
-        demo, "site_trial", lambda scene, encounter="any", steps=4000: fake[scene.seed]
+        demo, "site_trial",
+        lambda scene, encounter="any", steps=4000, planner=None: fake[scene.seed],
     )
     ranked = demo.rank_seeds("any", num_agents=5, n_seeds=4)
     # Safe seeds first (then fastest), then unsafe by collision count.

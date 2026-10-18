@@ -13,12 +13,22 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+from construction_nav import config as C
 from construction_nav.env import generate_scene
-from construction_nav.planner import FixedRadiusPlanner
+from construction_nav.planner import FixedRadiusPlanner, JointPlanner
+from construction_nav.predict import ConstantVelocityPredictor
 from construction_nav.render import render_scene
 from construction_nav.render_anim import animate_trial
 from construction_nav.render_predictions import render_diffusion_sequence, render_pipeline
 from construction_nav.render_trials import plot_trial
+
+
+def _make_planner(name: str):
+    if name == "joint":
+        return JointPlanner(predictor=ConstantVelocityPredictor(horizon=C.HORIZON_STEPS))
+    if name == "fixed-radius":
+        return FixedRadiusPlanner(use_oracle=True)
+    return None
 
 
 def main() -> None:
@@ -29,6 +39,8 @@ def main() -> None:
     parser.add_argument("--arena", type=float, default=60.0)
     parser.add_argument("--out-dir", type=Path, default=Path("figures"))
     parser.add_argument("--dpi", type=int, default=300)
+    parser.add_argument("--planner", choices=["joint", "fixed-radius", "pursuit"],
+                        default="joint")
     parser.add_argument("--animate", action="store_true", help="also write a GIF")
     args = parser.parse_args()
 
@@ -38,7 +50,7 @@ def main() -> None:
     written += render_diffusion_sequence(scene, args.out_dir, dpi=args.dpi)
     written += render_pipeline(args.out_dir, dpi=args.dpi)
 
-    planner = FixedRadiusPlanner(use_oracle=True)
+    planner = _make_planner(args.planner)
     paths, summary = plot_trial(scene, args.out_dir, name="trial", planner=planner, steps=2000)
     written += paths
     if args.animate:

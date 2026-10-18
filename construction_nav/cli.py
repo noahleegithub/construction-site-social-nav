@@ -40,7 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_trial = sub.add_parser("trial", help="run one closed-loop trial")
     _add_common(p_trial)
     p_trial.add_argument("--steps", type=int, default=2000, help="max simulation steps")
-    p_trial.add_argument("--planner", choices=["pursuit", "fixed-radius"], default="pursuit")
+    p_trial.add_argument("--planner", choices=["pursuit", "fixed-radius", "joint"],
+                         default="pursuit")
     p_trial.add_argument("--animate", action="store_true", help="also write a GIF")
 
     p_pred = sub.add_parser("predictions", help="render MotionDiffuser-style schematics")
@@ -56,6 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_rob.add_argument("--seeds", type=int, default=8, help="seeds scanned per case")
     p_rob.add_argument("--max-steps", type=int, default=4000)
     p_rob.add_argument("--barrier", choices=["all", "robot", "none"], default="all")
+    p_rob.add_argument("--planner", choices=["fixed-radius", "joint"],
+                       default="fixed-radius")
     p_rob.add_argument("--no-animate", action="store_true")
     p_rob.add_argument("--json", type=Path, default=None, help="write a JSON summary here")
 
@@ -66,10 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _make_planner(name: str):
-    from construction_nav.planner import FixedRadiusPlanner
+    from construction_nav import config as C
+    from construction_nav.planner import FixedRadiusPlanner, JointPlanner
+    from construction_nav.predict import ConstantVelocityPredictor
 
     if name == "fixed-radius":
         return FixedRadiusPlanner(use_oracle=True)
+    if name == "joint":
+        return JointPlanner(predictor=ConstantVelocityPredictor(horizon=C.HORIZON_STEPS))
     return None
 
 
@@ -126,7 +133,7 @@ def cmd_robotarium(args) -> int:
     cases = [dataclasses.replace(c, num_agents=args.agents) for c in cases]
     results = run_all(out_dir=args.out_dir, cases=cases, barrier_mode=args.barrier,
                       max_steps=args.max_steps, animate=not args.no_animate,
-                      n_seeds=args.seeds)
+                      n_seeds=args.seeds, planner=_make_planner(args.planner))
     print(json.dumps(results, indent=2))
     if args.json:
         args.json.write_text(json.dumps(results, indent=2))
