@@ -3,7 +3,7 @@
 The construction worksite (tens of metres) is mapped by a uniform scale into the
 Robotarium's 3.2 m x 2.0 m arena. Every entity -- the robot and all ``M`` agents
 -- is instantiated as a Robotarium unicycle robot; agents are driven by the same
-route-following + social-force controller used in :mod:`construction_nav.env`,
+route-following + ORCA avoidance controller used in :mod:`construction_nav.env`,
 and bicycle vehicles are represented by their curvature-equivalent turn rate
 (``omega = v tan(delta) / L``). The Robotarium therefore owns all integration and
 validates collisions / boundaries via ``debug()``.
@@ -104,7 +104,14 @@ def run_robotarium_trial(
             robot_cmd = env.default_robot_command()
         else:
             robot_cmd = planner(env)
-        agent_cmds = [env.tick_agent(a, integrate=False) for a in env.scene.agents]
+        # Agents build their ORCA constraints from one frozen snapshot, and need
+        # the robot's velocity for this step to treat it as a moving neighbour.
+        env.robot.speed = float(robot_cmd[0])
+        snapshot = env.agent_snapshot()
+        agent_cmds = [
+            env.tick_agent(a, integrate=False, snapshot=snapshot)
+            for a in env.scene.agents
+        ]
 
         # 2. Assemble Robotarium unicycle velocities (2 x N).
         U = np.zeros((2, n_robots))
@@ -131,7 +138,7 @@ def run_robotarium_trial(
         poses_log.append(poses.copy())
         site_log.append(transform.to_site(poses[:2, :].T))
 
-        _sync(env, poses, transform)
+        _sync(env, poses, transform, robot_speed=float(robot_cmd[0]))
         info = env.log_step(robot_speed=robot_cmd[0])
         if info.robot_reached_goal:
             reached = True
@@ -150,10 +157,15 @@ def run_robotarium_trial(
     )
 
 
-def _sync(env: ConstructionEnv, poses: np.ndarray, transform: RobotariumTransform) -> None:
+def _sync(
+    env: ConstructionEnv,
+    poses: np.ndarray,
+    transform: RobotariumTransform,
+    robot_speed: float | None = None,
+) -> None:
     site = transform.to_site(poses[:2, :].T)   # (N, 2)
     thetas = poses[2, :]
-    env.sync_robot_state(site[0], float(thetas[0]))
+    env.sync_robot_state(site[0], float(thetas[0]), speed=robot_speed)
     env.sync_agent_states(site[1:], thetas[1:])
 
 

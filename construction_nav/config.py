@@ -69,7 +69,16 @@ VEHICLE_WHEELBASE_REF = 2.5       # m
 LOOKAHEAD_REF = 6.0               # m lookahead along the route
 ARRIVAL_RADIUS_REF = 1.5          # m within which a station counts as reached
 
-SF_RADIUS_REF = 6.0               # m social-force interaction radius
+# ---------------------------------------------------------------------------
+# Reciprocal collision avoidance (ORCA)
+# ---------------------------------------------------------------------------
+
+ORCA_TIME_HORIZON = 2.0           # s: look-ahead over which conflicts are avoided
+ORCA_NEIGHBOR_DIST_REF = 6.0      # m: neighbour interaction radius
+# Extra clearance on top of the combined radius. A vehicle covers 2 m per 0.5 s
+# step at the reference scale -- more than its own D_S -- so without a margin
+# the discretisation alone can tunnel a pair through the constraint.
+ORCA_SAFETY_MARGIN_REF = 0.5      # m
 
 ROBOT_RADII_REF = {"D_S": 0.4, "D_C": 1.2}
 ROBOT_SPEED_REF = 1.4             # m/s nominal
@@ -106,14 +115,6 @@ ROBOT_MAX_OMEGA = np.deg2rad(120.0)
 
 DWELL_RANGE = (4.0, 14.0)         # seconds spent "working" at a station
 WORKING_PROBABILITY = 0.45        # fraction of agents that start stationary
-
-# ---------------------------------------------------------------------------
-# Social-force model (dimensionless gains)
-# ---------------------------------------------------------------------------
-
-SF_AGENT_GAIN = 1.6               # peer repulsion weight
-SF_ROBOT_GAIN = 2.4               # robot repulsion weight (humans yield more)
-SF_MAX_SLOWDOWN = 0.7             # fraction of nominal speed lost at contact
 
 # ---------------------------------------------------------------------------
 # Forecast and navigation cost (Eq. (1) and Eq. (3))
@@ -170,7 +171,8 @@ class Layout:
     # route following and interaction (metres)
     lookahead: float
     arrival_radius: float
-    sf_radius: float
+    orca_neighbor_dist: float
+    orca_safety_margin: float
 
     @classmethod
     def for_arena(cls, arena: float, radius_floor: float = 0.0) -> "Layout":
@@ -219,7 +221,10 @@ class Layout:
             robot_speed=ROBOT_SPEED_REF * k,
             lookahead=LOOKAHEAD_REF * k,
             arrival_radius=ARRIVAL_RADIUS_REF * k,
-            sf_radius=max(SF_RADIUS_REF * k, 2.5 * radius_floor),
+            orca_neighbor_dist=max(ORCA_NEIGHBOR_DIST_REF * k, 2.5 * radius_floor),
+            orca_safety_margin=max(
+                ORCA_SAFETY_MARGIN_REF * k, 0.5 * radius_floor
+            ),
         )
 
 
@@ -238,7 +243,6 @@ VEHICLE_SPEED = VEHICLE_SPEED_REF
 VEHICLE_WHEELBASE = VEHICLE_WHEELBASE_REF
 LOOKAHEAD = LOOKAHEAD_REF
 ARRIVAL_RADIUS = ARRIVAL_RADIUS_REF
-SF_RADIUS = SF_RADIUS_REF
 ROBOT_RADII = ROBOT_RADII_REF
 ROBOT_SPEED = ROBOT_SPEED_REF
 

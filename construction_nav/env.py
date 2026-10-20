@@ -3,8 +3,8 @@
 ``generate_scene`` produces a static, reproducible worksite snapshot;
 ``ConstructionEnv`` advances it in time: heterogeneous agents follow their
 two-station routes (transitioning between ``working`` and ``moving``), avoid one
-another with a social-force model, respect vision cones and blindspots, while a
-single robot is driven by an external policy.
+another with **ORCA** reciprocal collision avoidance, and respect vision cones
+and blindspots, while a single robot is driven by an external policy.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ import numpy as np
 from construction_nav import config as C
 from construction_nav.dynamics import step_agent, wrap_angle
 from construction_nav.entities import Agent, Highway, Node, Robot, Scene
+from construction_nav.orca import combined_radius, orca_halfplane
+from construction_nav.orca import solve as orca_solve
 from construction_nav.graph import (
     adjacency,
     arc_lengths,
@@ -445,7 +447,7 @@ class ConstructionEnv:
 
     scene: Scene
     dt: float = C.DT
-    use_social_force: bool = True
+    use_avoidance: bool = True
     seed: int | None = None
     rng: np.random.Generator = field(init=False)
     robot: Robot = field(init=False)
@@ -532,15 +534,23 @@ class ConstructionEnv:
 
         ``robot_cmd`` is ``(v, omega)``; when ``None`` a built-in goal-seeking
         pure-pursuit controller is used (handy for demos and the baseline).
-        """
-        for agent in self.scene.agents:
-            self.tick_agent(agent)
 
+        Agents update in two phases -- snapshot, then command -- so every ORCA
+        constraint is built from the same state. Ticking them sequentially would
+        let later agents react to earlier agents' *new* velocities and break the
+        reciprocity guarantee.
+        """
         if robot_cmd is None:
             robot_cmd = self.default_robot_command()
         v, omega = robot_cmd
         v = float(np.clip(v, 0.0, self.layout.robot_speed))
         omega = float(np.clip(omega, -C.ROBOT_MAX_OMEGA, C.ROBOT_MAX_OMEGA))
+        # Agents see the robot's command for this step; it integrates after them.
+        self.robot.speed = v
+
+        snapshot = self.agent_snapshot()
+        for agent in self.scene.agents:
+            self.tick_agent(agent, snapshot=snapshot)
 
         from construction_nav.dynamics import unicycle_step
 
@@ -552,6 +562,18 @@ class ConstructionEnv:
         self.robot.omega = omega
 
         return self.log_step(v)
+
+    def agent_snapshot(self) -> dict[str, np.ndarray]:
+        """Frozen agent poses/velocities/radii used to build ORCA constraints."""
+        agents = self.scene.agents
+        return {
+            "pos": np.array([a.pos for a in agents], dtype=float).reshape(-1, 2),
+            "vel": np.array(
+                [a.speed * np.array([np.cos(a.theta), np.sin(a.theta)]) for a in agents],
+                dtype=float,
+            ).reshape(-1, 2),
+            "D_S": np.array([a.D_S for a in agents], dtype=float),
+        }
 
     def log_step(self, robot_speed: float) -> StepInfo:
         """Record the current state and accumulate the Eq. (3) cost terms.
@@ -596,13 +618,22 @@ class ConstructionEnv:
             agent.heading = np.array([np.cos(thetas[i]), np.sin(thetas[i])])
             agent.pos = np.clip(agent.pos, 0.0, self.scene.arena_size)
 
-    def sync_robot_state(self, pos: np.ndarray, theta: float) -> None:
+    def sync_robot_state(
+        self, pos: np.ndarray, theta: float, speed: float | None = None
+    ) -> None:
         self.robot.pos = np.asarray(pos, dtype=float).copy()
         self.robot.heading = np.array([np.cos(theta), np.sin(theta)])
+        if speed is not None:
+            self.robot.speed = float(speed)
 
     # -- agents -----------------------------------------------------------
 
-    def tick_agent(self, agent: Agent, integrate: bool = True) -> tuple[float, float]:
+    def tick_agent(
+        self,
+        agent: Agent,
+        integrate: bool = True,
+        snapshot: dict[str, np.ndarray] | None = None,
+    ) -> tuple[float, float]:
         """Advance one agent, or (with ``integrate=False``) only compute its command.
 
         Returns the unicycle command ``(v, omega)`` the agent executes, where
@@ -618,40 +649,118 @@ class ConstructionEnv:
                 self._begin_trip(agent)
             return 0.0, 0.0
 
-        v, turn, max_turn = self._route_command(agent)
-        if agent.state == "working":
+        route = self._route_command(agent)
+        if route is None or agent.state == "working":
             # ``_route_command`` detected arrival this step and snapped the agent
             # onto the station; nothing to integrate.
             agent.speed = 0.0
             agent.omega = 0.0
             return 0.0, 0.0
+        preferred, max_turn = route
+
+        if self.use_avoidance:
+            target = self._avoidance_velocity(agent, preferred, snapshot)
+        else:
+            target = preferred
+
+        speed = float(np.clip(np.linalg.norm(target), 0.0, agent.nominal_speed))
+        # Steer toward the avoidance velocity; if it vanished, keep turning
+        # toward the route so the agent can never get stuck facing the wrong way.
+        direction = target if speed > 1e-6 else preferred
+        heading_error = wrap_angle(
+            float(np.arctan2(direction[1], direction[0])) - agent.theta
+        )
+        # A unicycle/bicycle can only move along its heading, so a velocity the
+        # steering cannot realise must not be driven at full speed. Scale by how
+        # much of it is achievable within one step's turn budget; otherwise a
+        # saturated-steering vehicle creeps straight into what it is turning from.
+        if agent.kind == "vehicle":
+            max_step = (
+                agent.nominal_speed * np.tan(max_turn) / self.layout.wheelbase
+            ) * self.dt
+        else:
+            max_step = max_turn * self.dt
+        residual = max(0.0, abs(heading_error) - max_step)
+        speed *= float(np.cos(min(residual, 0.5 * np.pi)))
+        turn = C.HEADING_GAIN * heading_error
 
         if agent.kind == "vehicle":
             agent.steer = float(np.clip(turn, -max_turn, max_turn))
-            agent.omega = float(v * np.tan(agent.steer) / self.layout.wheelbase)
+            agent.omega = float(speed * np.tan(agent.steer) / self.layout.wheelbase)
         else:
             agent.omega = float(np.clip(turn, -max_turn, max_turn))
 
         if integrate:
             agent.pos, theta = step_agent(
-                agent.pos, agent.theta, agent.kind, v, turn, self.dt,
+                agent.pos, agent.theta, agent.kind, speed, turn, self.dt,
                 self.layout.wheelbase, max_turn,
             )
             agent.heading = np.array([np.cos(theta), np.sin(theta)])
-        agent.speed = v
+        agent.speed = speed
         return agent.speed, agent.omega
+
+    def _station_slot(self, station: int, agent: Agent) -> np.ndarray:
+        """Where an arriving agent stands at ``station``.
+
+        Stations are shared as *targets* (an agent's two stations are unique,
+        but several agents can head for the same one), so snapping every arrival
+        to the node centre would stack agents on top of each other. The agent
+        takes whichever of the centre / six ring slots is farthest from whoever
+        is already nearby -- including an agent that just finished its dwell and
+        is about to depart, which is why occupancy is distance-based rather than
+        ``state == "working"``.
+        """
+        base = self.scene.nodes[station].pos
+        # Reach past the widest body in the scene, so an arriving human does not
+        # step into the safety radius of a vehicle driving past.
+        widest = max(other.D_S for other in self.scene.agents)
+        reach = 3.0 * widest
+        occupants = [
+            other.pos
+            for other in self.scene.agents
+            if other is not agent and float(np.linalg.norm(other.pos - base)) <= reach
+        ]
+        if not occupants:
+            return base.copy()
+
+        # Slot ring: at least a full body clearance from the centre so a vehicle
+        # using the corridor past this leaf does not brush the standing agent.
+        radius = 2.0 * widest
+        outward = np.array([1.0, 0.0])
+        for highway in self.scene.highways:
+            if station in (highway.u, highway.v):
+                other = highway.v if highway.u == station else highway.u
+                direction = base - self.scene.nodes[other].pos
+                length = float(np.linalg.norm(direction))
+                if length > 1e-9:
+                    outward = direction / length
+                break
+        # Outward-facing slots first so ties prefer standing off the corridor.
+        candidates = [base]
+        for angle in np.deg2rad([0.0, 60.0, -60.0, 120.0, -120.0, 180.0]):
+            rotation = np.array([
+                [np.cos(angle), -np.sin(angle)],
+                [np.sin(angle), np.cos(angle)],
+            ])
+            candidates.append(base + radius * (rotation @ outward))
+        return max(
+            candidates,
+            key=lambda c: min(float(np.linalg.norm(c - o)) for o in occupants),
+        )
 
     def _begin_trip(self, agent: Agent) -> None:
         agent.at_station, agent.target_station = agent.target_station, agent.at_station
         agent.state = "moving"
         agent.trip_route = _trip(agent, self.scene)
 
-    def _route_command(self, agent: Agent) -> tuple[float, float, float]:
-        """Pure-pursuit route following blended with social forces.
+    def _route_command(self, agent: Agent) -> tuple[np.ndarray, float] | None:
+        """Preferred (holonomic) velocity for the agent's route this step.
 
-        Returns ``(v, turn, max_turn)``; ``turn`` is an omega (humans) or a
-        steering angle (vehicles) and ``max_turn`` bounds it. Handles arrival,
-        which flips the agent to ``"working"``.
+        Returns ``(v_pref, max_turn)``, or ``None`` when the agent arrives at its
+        station this step (which flips it to ``"working"``). Pure pursuit sets
+        the direction; the unicycle/bicycle steering limit is applied later, so
+        ORCA can shift the direction freely before it is projected onto the
+        vehicle kinematics.
         """
         points = np.array([self.scene.nodes[i].pos for i in agent.trip_route])
         total = route_length(points)
@@ -659,11 +768,11 @@ class ConstructionEnv:
 
         # Arrival: within the arrival radius of the final station.
         if total - s <= self.layout.arrival_radius:
-            agent.pos = points[-1].copy()
+            agent.pos = self._station_slot(agent.trip_route[-1], agent)
             agent.state = "working"
             agent.at_station = agent.trip_route[-1]
             agent.dwell_remaining = float(self.rng.uniform(*C.DWELL_RANGE))
-            return 0.0, 0.0, C.HUMAN_MAX_OMEGA
+            return None
 
         target_pt, heading_dir = point_on_polyline(points, min(s + self.layout.lookahead, total))
         desired = target_pt - agent.pos
@@ -673,56 +782,76 @@ class ConstructionEnv:
         else:
             desired = desired / norm
 
-        push, slowdown = self._social_forces(agent)
-        if np.linalg.norm(push) > 0:
-            desired = desired + push
-            dn = float(np.linalg.norm(desired))
-            desired = desired / dn if dn > 1e-6 else heading_dir
-
         heading_error = wrap_angle(np.arctan2(desired[1], desired[0]) - agent.theta)
         align = max(0.0, float(np.cos(heading_error)))
-        v = agent.nominal_speed * (0.25 + 0.75 * align) * slowdown
-
-        turn = C.HEADING_GAIN * heading_error
+        speed = agent.nominal_speed * (0.25 + 0.75 * align)
         max_turn = C.VEHICLE_MAX_STEER if agent.kind == "vehicle" else C.HUMAN_MAX_OMEGA
-        return float(v), float(turn), float(max_turn)
+        return desired * speed, float(max_turn)
 
-    def _social_forces(self, agent: Agent) -> tuple[np.ndarray, float]:
-        """Return (heading push, speed slowdown factor) for one agent."""
-        if not self.use_social_force:
-            return np.zeros(2), 1.0
+    def _avoidance_velocity(
+        self,
+        agent: Agent,
+        preferred: np.ndarray,
+        snapshot: dict[str, np.ndarray] | None = None,
+    ) -> np.ndarray:
+        """ORCA velocity closest to ``preferred`` for one agent.
 
-        push = np.zeros(2)
-        proximity = 0.0
+        Agents avoid every neighbour within ``orca_neighbor_dist``
+        (full observability). The robot joins a **human's** constraint set only
+        when it is inside that human's field of view, and split 50/50 as usual;
+        **vehicles never avoid the robot**, so they hold their path (Section 3).
+        """
+        snap = snapshot if snapshot is not None else self.agent_snapshot()
+        pos_all = snap["pos"]
+        vel_all = snap["vel"]
+        ds_all = snap["D_S"]
+        layout = self.layout
+        margin = layout.orca_safety_margin
+        horizon = C.ORCA_TIME_HORIZON
 
-        for other in self.scene.agents:
-            if other is agent:
+        constraints: list[tuple[np.ndarray, float]] = []
+        self_index = next(
+            k for k, candidate in enumerate(self.scene.agents) if candidate is agent
+        )
+        # ORCA is built around the agent's *current* velocity, not the preferred
+        # one: `u` is the minimum change needed from where it is now.
+        own_vel = vel_all[self_index]
+        for i in range(len(self.scene.agents)):
+            if i == self_index:
                 continue
-            delta = agent.pos - other.pos
-            d = float(np.linalg.norm(delta))
-            if d > self.layout.sf_radius or d < 1e-6:
+            if float(np.linalg.norm(pos_all[i] - agent.pos)) > layout.orca_neighbor_dist:
                 continue
-            closeness = 1.0 - d / self.layout.sf_radius
-            push += C.SF_AGENT_GAIN * closeness * delta / d
-            proximity = max(proximity, closeness)
+            radius = combined_radius(agent.D_S, float(ds_all[i])) + margin
+            constraint = orca_halfplane(
+                agent.pos,
+                own_vel,
+                pos_all[i],
+                vel_all[i],
+                radius,
+                horizon,
+                self.dt,
+                share=0.5,
+                # Deterministic side choice for exactly collinear head-on pairs.
+                tie_break=1.0 if self_index < i else -1.0,
+            )
+            if constraint is not None:
+                constraints.append(constraint)
 
-        # Robot: humans yield when it is in their field of view; vehicles hold
-        # their path (Section 3).
-        delta = agent.pos - self.robot.pos
-        d = float(np.linalg.norm(delta))
-        if d <= self.layout.sf_radius and d > 1e-6:
-            if agent.kind == "human":
-                in_view = self._in_cone(
-                    agent.pos, agent.theta, self.robot.pos,
-                    C.FOV_HALF_ANGLE, self.layout.fov_range,
+        if agent.kind == "human":
+            gap = float(np.linalg.norm(self.robot.pos - agent.pos))
+            if gap <= layout.orca_neighbor_dist and self.in_fov(agent, self.robot.pos):
+                radius = max(agent.D_S, self.robot.D_S) + margin
+                robot_vel = self.robot.speed * np.array(
+                    [np.cos(self.robot.theta), np.sin(self.robot.theta)]
                 )
-                if in_view:
-                    closeness = 1.0 - d / self.layout.sf_radius
-                    push += C.SF_ROBOT_GAIN * closeness * delta / d
-                    proximity = max(proximity, closeness)
+                constraint = orca_halfplane(
+                    agent.pos, own_vel, self.robot.pos, robot_vel, radius,
+                    horizon, self.dt, share=0.5,
+                )
+                if constraint is not None:
+                    constraints.append(constraint)
 
-        slowdown = 1.0 - C.SF_MAX_SLOWDOWN * min(1.0, proximity)
-        return push, float(np.clip(slowdown, 1.0 - C.SF_MAX_SLOWDOWN, 1.0))
+        return orca_solve(preferred, constraints, agent.nominal_speed)
 
     # -- robot helpers ----------------------------------------------------
 

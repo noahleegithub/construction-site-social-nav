@@ -4,7 +4,8 @@ CSCE 689 course project. One robot navigates a **graph-structured construction
 worksite** toward a goal while `5 <= M <= 19` heterogeneous agents work at and
 travel between stations. Agents are **humans** (unicycle dynamics) or **vehicles**
 (bicycle dynamics); they alternate between working and moving, have vision cones
-and blindspots, and avoid one another with a **social-force model**. The robot
+and blindspots, and avoid one another with **ORCA** reciprocal collision
+avoidance. The robot
 observes agent histories, forecasts their futures
 (ADE / FDE), plans a socially compliant path, and is evaluated both in the native
 simulation and on the **Robotarium** simulator.
@@ -25,7 +26,7 @@ Development proceeds in three vertical slices. **All three are complete**:
 
 - Scale-invariant worksite generator (graph, workstations, 5–19 agents).
 - Heterogeneous closed-loop simulation (unicycle humans, bicycle vehicles,
-  working/moving state machine, social forces, FOV/blindspot sensing).
+  working/moving state machine, ORCA reciprocal avoidance, FOV/blindspot sensing).
 - Metrics: ADE / FDE (Eq. 1), barrier terms `h_S`/`h_C` (Eq. 2), cost `J` (Eq. 3).
 - Predictors: **constant velocity**, a **reduced Trajectron++** (RNN + discrete
   CVAE), and a **MotionDiffuser-style conditional diffusion** model, both jointly
@@ -126,10 +127,36 @@ and the hardware-scale Robotarium demos.
 
 (Radii/speeds at the 60 m reference scale; all scale linearly with the arena.)
 
-Agents follow their route by pure-pursuit blended with a social-force push from
-nearby agents, and a speed slowdown under crowding.
+Agents follow their route by pure pursuit, then project the preferred velocity
+through **ORCA** (optimal reciprocal collision avoidance). Every agent builds
+half-plane constraints against all neighbours within `orca_neighbor_dist` and
+picks the velocity closest to its preferred one that satisfies them, by exact
+enumeration of the feasible polygon's vertices. Because the recovery vector is
+split 50/50, avoidance is reciprocal rather than one-sided.
+
+Three details make ORCA work with nonholonomic bodies:
+
+- **Two-phase update.** `step()` freezes a snapshot (poses, velocities, radii)
+  before commanding anyone; otherwise later agents would react to earlier
+  agents' *new* velocities and reciprocity would break.
+- **Reachable-velocity scaling.** A unicycle can only move along its heading, so
+  a velocity the steering cannot realise within one step is scaled down instead
+  of being driven at full speed — this is what stops a saturated-steering
+  vehicle creeping into the obstacle it is turning away from.
+- **Coarse-step margin.** At the 0.5 s timestep a vehicle covers 2 m per step,
+  more than its own `D_S`, so `ORCA_SAFETY_MARGIN_REF` (0.5 m) keeps the
+  combined radius above one step of travel.
+
 **Humans yield to the robot when it is inside their field of view; vehicles hold
 their path** (Section 3), while every agent carries a rear *blindspot* cone.
+Vehicle corridors are wide (9 m) and mesh corridors shared.
+
+| Quantity | Value (60 m reference) |
+|---|---|
+| ORCA time horizon | 2.0 s (not scaled) |
+| Neighbour radius | 6 m |
+| Combined radius | `max(D_S_i, D_S_j) + 0.5 m` |
+| Responsibility split | 50 / 50 |
 
 ## Metrics (proposal Eqs. 1–3)
 
@@ -227,6 +254,12 @@ is exactly the "predictor quality vs planner" ablation.
 
 ## Evaluation
 
+> **Numbers below predate the ORCA switch.** They were measured with the
+> social-force agents and the previous layout, and the checkpoints were trained
+> on that distribution. Re-running `scripts/train.py`, `scripts/benchmark.py` and
+> `scripts/evaluate_planners.py` is the next step and will refresh these tables,
+> `figures/*.json` and the plotted figures.
+
 `evaluate.evaluate_predictor` scores any predictor on closed-loop rollouts:
 the environment is advanced under the nominal policy, the predictor is asked to
 forecast at each step, and its forecast is compared with the positions the rollout
@@ -287,7 +320,7 @@ time) -- the soft social cost is bought with time, as Eq. (3) intends.
 `construction_nav.robotarium` maps the worksite into the Robotarium arena with a
 single uniform scale and instantiates **the robot and all `M` agents as
 Robotarium unicycle robots**. Agents are driven by the same route-following and
-social-force controller; vehicles are represented by their curvature-equivalent
+ORCA avoidance controller; vehicles are represented by their curvature-equivalent
 turn rate `omega = v tan(delta)/L`. Two approximations are documented:
 
 1. The Robotarium only simulates unicycles, so bicycle vehicles are reduced to a
@@ -340,8 +373,9 @@ python -m pytest -m slow         # end-to-end Robotarium smoke test
 ```
 
 Coverage includes dynamics integration, scene invariants and scale invariance,
-environment determinism and the working/moving state machine, social-force
-behaviour, ADE/FDE/barrier/cost closed forms, predictor shapes and velocity
+environment determinism and the working/moving state machine, ORCA reciprocity
+and clearance, FOV-gated robot avoidance, ADE/FDE/barrier/cost closed forms,
+predictor shapes and velocity
 estimation, dataset generation and round-trip, the learned predictors (train,
 predict, save/load) and the CV prior, planner goal-reaching and static-obstacle
 avoidance, the joint planner (valid commands, oracle goal-reaching, the reactive
@@ -357,6 +391,7 @@ construction_nav/
   entities.py       Node, Highway, Agent, Robot, Scene
   graph.py          mesh construction, routing, polyline geometry
   dynamics.py       unicycle / bicycle integrators
+  orca.py           ORCA half-planes and the 2-D velocity solver
   env.py            generate_scene + ConstructionEnv (closed loop)
   metrics.py        ADE / FDE / barriers / cost J
   evaluate.py       open-loop predictor evaluation (ADE/FDE vs H, M)
@@ -390,7 +425,21 @@ deliberately left out of the course timeline:
 ## Notes and limitations
 
 - `D_S` is a collision radius and `D_C` a safety radius; the barrier terms use
-  squared distances per Eq. (2).
+  squared distances per Eq. (2). ORCA uses `max(D_S_i, D_S_j)` as the pair's
+  combined radius, which equals Eq. (2)'s `D_S` for human–robot pairs and is
+  conservative (keeps the vehicle's larger radius) for vehicles.
+- The environment no longer has circular high-risk zones; "high-risk" is the
+  off-highway ground shown by the hazard hatch. Eq. (3) was never a function of
+  the zones, so the cost model is unchanged.
+- Agent counts run 5–19 non-robot agents (6–20 entities). At the top of that
+  range the peripheral ring is densely packed, so workstation separations relax
+  and the spawn clearances become soft (never below `D_S`).
+- The 0.5 s timestep is coarse relative to vehicle speed (2 m per step). ORCA's
+  0.5 m safety margin absorbs this at the reference scale; a few brief
+  agent–agent overlaps remain possible at `M = 19`.
+- ORCA is solved in velocity space and then projected onto the unicycle/bicycle
+  kinematics, so its guarantee holds for the commanded velocity, not exactly for
+  the integrated pose; the reachable-velocity scaling keeps the gap small.
 - The Robotarium demo is a schematic at hardware scale; its collision notion is
   the GRITSbot body, which is larger than the scaled agents, so the site-frame
   metrics (Eq. 2/3) are the authoritative safety measures.

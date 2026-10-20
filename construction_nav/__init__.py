@@ -6,8 +6,8 @@ Prediction and Social Navigation for Construction Site Robots" (CSCE 689):
     One robot navigates a graph-structured construction worksite toward a goal
     while M >= 5 heterogeneous agents (human workers on unicycle dynamics and
     vehicles on bicycle dynamics) work at and travel between stations, obey
-    vision cones and blindspots, avoid each other with a social-force model.
-    The robot observes agent history,
+    vision cones and blindspots, and avoid each other with ORCA reciprocal
+    collision avoidance. The robot observes agent history,
     forecasts futures (ADE / FDE), plans a socially compliant path, and is
     evaluated both in this environment and on the Robotarium simulator.
 

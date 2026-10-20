@@ -63,44 +63,103 @@ def test_working_agents_dwell_then_move():
     assert moved, "no agent ever entered the moving state"
 
 
-def test_social_force_repels():
-    env = ConstructionEnv(generate_scene(seed=0, num_agents=7))
-    agent = env.scene.agents[0]
-    # Place a peer right in front of the agent.
-    other = env.scene.agents[1]
-    other.pos = agent.pos + np.array([0.2, 0.0])
-    push, slowdown = env._social_forces(agent)
-    assert np.linalg.norm(push) > 0
-    assert slowdown < 1.0
-
-
-def _isolate(env, keep):
-    """Park every other agent far away, isolating one interaction."""
+def _park_others(env, *keep):
+    """Move every agent except ``keep`` (by identity) far away."""
     for agent in env.scene.agents:
-        if agent is not keep:
-            agent.pos = np.array([-1e3, -1e3])
+        if any(agent is k for k in keep):
+            continue
+        agent.pos = np.array([-1e3, -1e3])
+        agent.speed = 0.0
+
+
+def _humans(scene, n):
+    return [a for a in scene.agents if a.kind == "human"][:n]
+
+
+def test_orca_returns_preferred_when_alone(scene):
+    env = ConstructionEnv(scene)
+    agent = scene.agents[0]
+    _park_others(env, agent)
+    env.robot.pos = np.array([-1e3, -1e3])
+    preferred = np.array([0.3, -0.2])
+    out = env._avoidance_velocity(agent, preferred, env.agent_snapshot())
+    assert np.allclose(out, preferred)
+
+
+def test_orca_deflects_a_head_on_neighbour(scene):
+    env = ConstructionEnv(scene)
+    a, b = _humans(scene, 2)
+    _park_others(env, a, b)
+    env.robot.pos = np.array([-1e3, -1e3])
+    a.pos = np.array([10.0, 10.0])
+    a.heading = np.array([1.0, 0.0])
+    a.speed = 1.4
+    b.pos = np.array([13.0, 10.05])
+    b.heading = np.array([-1.0, 0.0])
+    b.speed = 1.4
+
+    preferred = np.array([1.4, 0.0])
+    out = env._avoidance_velocity(a, preferred, env.agent_snapshot())
+    assert not np.allclose(out, preferred)
+    assert np.linalg.norm(out) <= a.nominal_speed + 1e-9
+
+
+def test_orca_keeps_clearance_in_a_head_on_pass():
+    """Two reciprocal agents must stay outside the combined radius."""
+    from construction_nav.orca import combined_radius, orca_halfplane, solve
+
+    dt = C.DT
+    radius = combined_radius(0.4, 0.4) + 0.5
+    pa, pb = np.array([0.0, 0.0]), np.array([5.0, 0.25])
+    va, vb = np.array([1.4, 0.0]), np.array([-1.4, 0.0])
+    closest = np.inf
+    for _ in range(30):
+        ca = orca_halfplane(pa, va, pb, vb, radius, 2.0, dt, tie_break=1.0)
+        cb = orca_halfplane(pb, vb, pa, va, radius, 2.0, dt, tie_break=-1.0)
+        na = solve(np.array([1.4, 0.0]), [ca] if ca else [], 1.4)
+        nb = solve(np.array([-1.4, 0.0]), [cb] if cb else [], 1.4)
+        va, vb = na, nb
+        pa, pb = pa + dt * va, pb + dt * vb
+        closest = min(closest, float(np.linalg.norm(pa - pb)))
+    assert closest >= radius - 0.05
 
 
 def test_human_yields_when_robot_is_in_view(scene):
     env = ConstructionEnv(scene)
     human = next(a for a in scene.agents if a.kind == "human")
-    env.robot.pos = human.pos + human.heading * 1.5
-    _isolate(env, human)
+    _park_others(env, human)
+    env.robot.pos = human.pos + human.heading * 2.0
+    env.robot.speed = 0.0
     assert env.in_fov(human, env.robot.pos)
-    push, slowdown = env._social_forces(human)
-    assert np.linalg.norm(push) > 0.0
-    assert slowdown < 1.0
+    preferred = human.heading * human.nominal_speed
+    out = env._avoidance_velocity(human, preferred, env.agent_snapshot())
+    assert not np.allclose(out, preferred)
+
+
+def test_human_ignores_robot_behind(scene):
+    """A robot in the blindspot is not avoided (Section 3)."""
+    env = ConstructionEnv(scene)
+    human = next(a for a in scene.agents if a.kind == "human")
+    _park_others(env, human)
+    env.robot.pos = human.pos - human.heading * 2.0
+    env.robot.speed = 0.0
+    assert not env.in_fov(human, env.robot.pos)
+    preferred = human.heading * human.nominal_speed
+    out = env._avoidance_velocity(human, preferred, env.agent_snapshot())
+    assert np.allclose(out, preferred)
 
 
 def test_vehicle_holds_its_path(scene):
     """Vehicles do not yield to the robot even inside their field of view."""
     env = ConstructionEnv(scene)
     vehicle = next(a for a in scene.agents if a.kind == "vehicle")
+    _park_others(env, vehicle)
     env.robot.pos = vehicle.pos + vehicle.heading * vehicle.D_C * 0.5
-    _isolate(env, vehicle)
+    env.robot.speed = 0.0
     assert env.in_fov(vehicle, env.robot.pos)
-    push, _ = env._social_forces(vehicle)
-    assert np.linalg.norm(push) == pytest.approx(0.0, abs=1e-9)
+    preferred = vehicle.heading * vehicle.nominal_speed
+    out = env._avoidance_velocity(vehicle, preferred, env.agent_snapshot())
+    assert np.allclose(out, preferred)
 
 
 def test_blindspot_is_behind_the_agent(scene):
