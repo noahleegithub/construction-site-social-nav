@@ -19,13 +19,34 @@ from construction_nav import config as C
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--seed", type=int, default=0, help="RNG seed for the scene")
-    parser.add_argument("--agents", type=int, default=C.DEFAULT_AGENTS,
-                        help="number of non-robot agents (M >= 5)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--agents", type=int, default=None,
+                       help=f"non-robot agents M ({C.MIN_AGENTS}-{C.MAX_AGENTS})")
+    group.add_argument("--total-agents", type=int, default=None,
+                       help="agents including the robot (6-20); M = total - 1")
     parser.add_argument("--arena", type=float, default=C.ARENA_SIZE,
                         help="worksite side length in metres")
     parser.add_argument("--out-dir", type=Path, default=Path("figures"),
                         help="output directory")
     parser.add_argument("--dpi", type=int, default=300, help="raster resolution")
+
+
+def _agent_count(args) -> int:
+    """Resolve ``--agents`` / ``--total-agents`` to M (non-robot agents)."""
+    if getattr(args, "total_agents", None) is not None:
+        total = int(args.total_agents)
+        if not C.MIN_AGENTS + 1 <= total <= C.MAX_AGENTS + 1:
+            raise SystemExit(
+                f"--total-agents must be in [{C.MIN_AGENTS + 1}, {C.MAX_AGENTS + 1}]"
+            )
+        return total - 1
+    count = int(C.DEFAULT_AGENTS if args.agents is None else args.agents)
+    if not C.MIN_AGENTS <= count <= C.MAX_AGENTS:
+        raise SystemExit(
+            f"--agents must be in [{C.MIN_AGENTS}, {C.MAX_AGENTS}] "
+            f"(total entities {C.MIN_AGENTS + 1}-{C.MAX_AGENTS + 1})"
+        )
+    return count
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -84,7 +105,7 @@ def cmd_scene(args) -> int:
     from construction_nav.env import generate_scene
     from construction_nav.render import render_scene
 
-    scene = generate_scene(seed=args.seed, num_agents=args.agents, arena=args.arena)
+    scene = generate_scene(seed=args.seed, num_agents=_agent_count(args), arena=args.arena)
     written = render_scene(scene, out_dir=args.out_dir, show_cones=not args.no_cones, dpi=args.dpi)
     for path in written:
         print(f"wrote {path}")
@@ -96,7 +117,7 @@ def cmd_trial(args) -> int:
     from construction_nav.render_anim import animate_trial
     from construction_nav.render_trials import plot_trial
 
-    scene = generate_scene(seed=args.seed, num_agents=args.agents, arena=args.arena)
+    scene = generate_scene(seed=args.seed, num_agents=_agent_count(args), arena=args.arena)
     planner = _make_planner(args.planner)
 
     paths, summary = plot_trial(scene, args.out_dir, name="trial", planner=planner, steps=args.steps)
@@ -145,7 +166,7 @@ def cmd_check(args) -> int:
     from construction_nav.env import ConstructionEnv, generate_scene
 
     for seed in range(args.trials):
-        scene = generate_scene(seed=seed, num_agents=args.agents, arena=args.arena)
+        scene = generate_scene(seed=seed, num_agents=_agent_count(args), arena=args.arena)
         env = ConstructionEnv(scene)
         for _ in range(50):
             env.step()

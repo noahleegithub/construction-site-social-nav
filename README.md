@@ -63,6 +63,7 @@ Learned predictors need PyTorch:
 ```bash
 # Render a static worksite figure (writes figures/scene.{png,pdf}, scene_arena.png)
 python -m construction_nav scene --seed 0 --agents 7
+python -m construction_nav scene --seed 0 --total-agents 20   # 19 agents + robot
 
 # Run one closed-loop trial and plot the paths (add --animate for a GIF)
 python -m construction_nav trial --seed 0 --agents 7 --planner joint --animate
