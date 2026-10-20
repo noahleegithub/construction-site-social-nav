@@ -149,7 +149,7 @@ def cmd_check(args) -> int:
         env = ConstructionEnv(scene)
         for _ in range(50):
             env.step()
-        print(f"seed={seed} nodes={len(scene.nodes)} zones={len(scene.zones)} "
+        print(f"seed={seed} nodes={len(scene.nodes)} "
               f"agents={len(scene.agents)} ok")
     return 0
 

@@ -152,19 +152,17 @@ def plot_lambda_sweep(
 
 
 def _draw_scene(ax, scene) -> None:
-    """Draw the static worksite (hazard field, highways, zones, workstations)."""
+    """Draw the static worksite (hazard field, highways, workstations)."""
     from construction_nav.render import (
         draw_hazard_field,
         draw_highway,
         draw_workstations,
-        draw_zones,
     )
 
     arena = scene.arena_size
     draw_hazard_field(ax, arena)
     for highway in scene.highways:
         draw_highway(ax, highway, scene)
-    draw_zones(ax, scene)
     draw_workstations(ax, scene)
     return arena
 

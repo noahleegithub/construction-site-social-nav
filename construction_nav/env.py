@@ -3,9 +3,8 @@
 ``generate_scene`` produces a static, reproducible worksite snapshot;
 ``ConstructionEnv`` advances it in time: heterogeneous agents follow their
 two-station routes (transitioning between ``working`` and ``moving``), avoid one
-another with a social-force model, respect vision cones and blindspots, and
-skirt static high-risk zones, while a single robot is driven by an external
-policy.
+another with a social-force model, respect vision cones and blindspots, while a
+single robot is driven by an external policy.
 """
 
 from __future__ import annotations
@@ -26,11 +25,10 @@ from construction_nav.graph import (
     point_on_polyline,
     project_arc_length,
     route_length,
-    sample_in_annulus,
     sample_in_disk,
+    sample_in_square_ring,
     shortest_path,
 )
-from construction_nav.zones import hazard, sample_zones, zone_repulsion
 
 
 # ---------------------------------------------------------------------------
@@ -42,25 +40,49 @@ def generate_scene(
     seed: int = 0,
     num_agents: int = C.DEFAULT_AGENTS,
     arena: float = C.ARENA_SIZE,
-    n_human_stations: int = C.N_HUMAN_STATIONS,
-    n_vehicle_stations: int = C.N_VEHICLE_STATIONS,
+    n_human_stations: int | None = None,
+    n_vehicle_stations: int | None = None,
     n_junctions: int = C.N_JUNCTIONS,
-    n_zones: int = C.N_ZONES,
     radius_floor: float = 0.0,
 ) -> Scene:
-    """Generate a representative static worksite snapshot per Section 3."""
+    """Generate a representative static worksite snapshot per Section 3.
+
+    ``num_agents`` counts the non-robot agents (M). Workstation counts default
+    to the smallest number that gives every agent its own start station; pass
+    ``n_human_stations`` / ``n_vehicle_stations`` to override, but they must
+    still be large enough.
+    """
     if n_junctions < 2:
         raise ValueError("n_junctions must be >= 2 to form a shared junction mesh")
-    if n_human_stations < 2 or n_vehicle_stations < 2:
-        raise ValueError("each kind needs >= 2 workstations for agents to cycle between")
-    if num_agents < 1:
-        raise ValueError("num_agents must be >= 1")
+    if not C.MIN_AGENTS <= num_agents <= C.MAX_AGENTS:
+        raise ValueError(
+            f"num_agents must be in [{C.MIN_AGENTS}, {C.MAX_AGENTS}] "
+            "(6-20 entities including the robot)"
+        )
 
     rng = np.random.default_rng(seed)
     layout = C.Layout.for_arena(arena, radius_floor=radius_floor)
     center = np.full(2, arena / 2.0)
     junction_radius = C.JUNCTION_RADIUS_FRAC * arena
-    station_r = (C.STATION_RADIUS_FRAC[0] * arena, C.STATION_RADIUS_FRAC[1] * arena)
+
+    # Kind split, then enough workstations for distinct spawn stations. The
+    # robot occupies one human workstation, hence ``n_humans + 1``.
+    n_vehicles = min(
+        max(1, int(round(num_agents * C.VEHICLE_FRACTION))), num_agents - 1
+    )
+    n_humans = num_agents - n_vehicles
+    if n_human_stations is None:
+        n_human_stations = max(C.N_HUMAN_STATIONS, n_humans + 1)
+    if n_vehicle_stations is None:
+        n_vehicle_stations = max(C.N_VEHICLE_STATIONS, n_vehicles)
+    if n_human_stations < 2 or n_vehicle_stations < 2:
+        raise ValueError("each kind needs >= 2 workstations for agents to cycle between")
+    if n_human_stations < n_humans + 1:
+        raise ValueError(
+            "n_human_stations must cover every human plus the robot's station"
+        )
+    if n_vehicle_stations < n_vehicles:
+        raise ValueError("n_vehicle_stations must cover every vehicle")
 
     nodes: list[Node] = []
 
@@ -98,7 +120,9 @@ def generate_scene(
         for _ in range(count):
             pos = place_station(
                 rng,
-                lambda: sample_in_annulus(rng, center, station_r[0], station_r[1]),
+                lambda: sample_in_square_ring(
+                    rng, arena, C.STATION_INNER_FRAC, C.STATION_MARGIN_FRAC
+                ),
                 j_positions,
                 stations_by_kind[kind],
                 stations_by_kind[other],
@@ -122,15 +146,12 @@ def generate_scene(
                 )
             )
 
-    # 4. Static high-risk zones, off the graph.
-    station_pts = stations_by_kind["human"] + stations_by_kind["vehicle"]
-    zones = sample_zones(rng, layout, station_pts, j_positions, n_zones=n_zones)
-
+    # 4. Static snapshot (zones were removed: high-risk ground is now the
+    #    off-highway area only, drawn as a hazard hatch).
     scene = Scene(
         arena_size=arena,
         nodes=nodes,
         highways=highways,
-        zones=zones,
         seed=seed,
         n_human_stations=n_human_stations,
         n_vehicle_stations=n_vehicle_stations,
@@ -138,7 +159,7 @@ def generate_scene(
         layout=layout,
     )
 
-    # 5. Robot: shuttle between the two farthest-apart human workstations.
+    # 4. Robot: shuttle between the two farthest-apart human workstations.
     human_ws = scene.station_indices("human")
     vehicle_ws = scene.station_indices("vehicle")
     adj_human = adjacency(scene, "human")
@@ -160,10 +181,8 @@ def generate_scene(
     scene.robot_heading = heading
     scene.goal_node = goal
 
-    # 6. Agents: two same-kind workstations each, shortest route across the mesh.
-    n_vehicles = max(1, int(round(num_agents * C.VEHICLE_FRACTION)))
-    n_vehicles = min(n_vehicles, num_agents - 1)
-    kinds = ["vehicle"] * n_vehicles + ["human"] * (num_agents - n_vehicles)
+    # 5. Agents: two same-kind workstations each, shortest route across the mesh.
+    kinds = ["vehicle"] * n_vehicles + ["human"] * n_humans
     rng.shuffle(kinds)
 
     used_start: dict[str, set[int]]
@@ -380,11 +399,6 @@ def _validate_scene(scene: Scene) -> None:
         assert np.all(node.pos >= 0.0) and np.all(node.pos <= arena), "node outside arena"
     for agent in scene.agents:
         assert np.all(agent.pos >= 0.0) and np.all(agent.pos <= arena), "agent outside arena"
-
-    for z in scene.zones:
-        assert z.radius > 0.0
-        assert np.all(z.center - z.radius >= 0.0), "zone outside arena"
-        assert np.all(z.center + z.radius <= arena), "zone outside arena"
 
 
 # ---------------------------------------------------------------------------
@@ -707,8 +721,6 @@ class ConstructionEnv:
                     push += C.SF_ROBOT_GAIN * closeness * delta / d
                     proximity = max(proximity, closeness)
 
-        push += zone_repulsion(agent.pos, self.scene.zones, self.layout)
-
         slowdown = 1.0 - C.SF_MAX_SLOWDOWN * min(1.0, proximity)
         return push, float(np.clip(slowdown, 1.0 - C.SF_MAX_SLOWDOWN, 1.0))
 
@@ -793,5 +805,3 @@ class ConstructionEnv:
             self.layout.blind_range,
         )
 
-    def hazard_at(self, pos: np.ndarray) -> float:
-        return hazard(pos, self.scene.zones, self.layout.zone_hazard_radius)

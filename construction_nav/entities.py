@@ -1,7 +1,7 @@
-"""Entity dataclasses: graph nodes, highways, agents, robot, zones, scene.
+"""Entity dataclasses: graph nodes, highways, agents, robot, scene.
 
 Ported from ``visualize_scene.py`` (which was already annotated for this split)
-and extended with the dynamic and hazard state needed by
+and extended with the dynamic state needed by
 :mod:`construction_nav.env`.
 """
 
@@ -43,19 +43,6 @@ class Highway:
         if self.access == C.VEHICLE:
             return "vehicle"
         return "human"
-
-
-@dataclass
-class Zone:
-    """A static high-risk work zone (slip / falling-object hazard)."""
-
-    center: np.ndarray              # (2,) meters
-    radius: float                   # meters
-
-
-# ---------------------------------------------------------------------------
-# Dynamic agents
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -135,7 +122,6 @@ class Scene:
     nodes: list[Node] = field(default_factory=list)
     highways: list[Highway] = field(default_factory=list)
     agents: list[Agent] = field(default_factory=list)
-    zones: list[Zone] = field(default_factory=list)
     robot_pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
     robot_heading: np.ndarray = field(default_factory=lambda: np.array([1.0, 0.0]))
     robot_route: list[int] = field(default_factory=list)

@@ -2,8 +2,8 @@
 
 Section 5's planner baseline: the robot knows every other agent's true future
 trajectory and simply adds a repulsive velocity whenever it would come within a
-fixed radius. It ignores blindspots, heterogeneity, and high-risk zones beyond a
-simple repulsion, so it isolates the value of the learned predictor + planner.
+fixed radius. It ignores blindspots and heterogeneity, so it isolates the value
+of the learned predictor + planner.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from construction_nav.planner.base import (
     oracle_futures,
     unicycle_command,
 )
-from construction_nav.zones import zone_repulsion
 
 
 class FixedRadiusPlanner(Planner):
@@ -27,13 +26,11 @@ class FixedRadiusPlanner(Planner):
         avoid_radius: float | None = None,
         avoid_gain: float = 3.0,
         horizon: int = C.HORIZON_STEPS,
-        use_zones: bool = True,
         use_oracle: bool = True,
     ) -> None:
         self.avoid_radius = avoid_radius
         self.avoid_gain = avoid_gain
         self.horizon = horizon
-        self.use_zones = use_zones
         self.use_oracle = use_oracle
 
     def _futures(self, env: ConstructionEnv) -> np.ndarray:
@@ -68,11 +65,6 @@ class FixedRadiusPlanner(Planner):
                 desired = desired + (
                     self.avoid_gain * speed * (1.0 - d / radius) * deltas[k] / d
                 )
-
-        if self.use_zones:
-            desired = desired + self.avoid_gain * speed * zone_repulsion(
-                robot.pos, env.scene.zones, layout
-            )
 
         if env._robot_reached_goal():
             return 0.0, 0.0

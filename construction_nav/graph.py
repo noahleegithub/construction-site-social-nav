@@ -12,7 +12,7 @@ import heapq
 import numpy as np
 
 from construction_nav import config as C
-from construction_nav.entities import Highway, Scene, Zone
+from construction_nav.entities import Highway, Scene
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +52,32 @@ def sample_in_annulus(
 ) -> np.ndarray:
     r = rng.uniform(r_min, r_max)
     return center + r * unit_from_angle(rng.uniform(0.0, 2.0 * np.pi))
+
+
+def sample_in_square_ring(
+    rng: np.random.Generator,
+    arena: float,
+    inner_frac: float = 0.0,
+    margin_frac: float = 0.0,
+) -> np.ndarray:
+    """Uniform point in ``[margin, arena-margin]^2`` outside the central disk.
+
+    Unlike :func:`sample_in_annulus` this fills the **corners** of the square
+    site, so peripheral nodes use the whole arena rather than a thin ring. The
+    central disk of radius ``inner_frac * arena`` stays empty, which keeps
+    workstations off the interior mesh.
+    """
+    margin = margin_frac * arena
+    inner = inner_frac * arena
+    center = np.full(2, arena / 2.0)
+    lo, hi = margin, arena - margin
+    for _ in range(C.MAX_TRIES):
+        pos = rng.uniform(lo, hi, size=2)
+        if inner <= 0.0 or float(np.linalg.norm(pos - center)) >= inner:
+            return pos
+    # Degenerate inner radius (e.g. very small arena): fall back to the boundary.
+    angle = rng.uniform(0.0, 2.0 * np.pi)
+    return center + inner * unit_from_angle(angle)
 
 
 def place(
@@ -227,5 +253,27 @@ def route_length(points: np.ndarray) -> float:
     return float(np.sum(np.linalg.norm(np.diff(points, axis=0), axis=1)))
 
 
-def point_in_zone(pos: np.ndarray, zone: Zone, margin: float = 0.0) -> bool:
-    return float(np.linalg.norm(pos - zone.center)) <= zone.radius + margin
+def coverage_fraction(scene: Scene, radius: float, n: int = 80) -> float:
+    """Fraction of the arena within ``radius`` of a highway centreline.
+
+    A coarse grid probe used to check that the walkable network actually spans
+    the site (i.e. there is not a large dead band between the mesh and the
+    boundary).
+    """
+    arena = scene.arena_size
+    axis = (np.arange(n) + 0.5) * arena / n
+    grid = np.stack(np.meshgrid(axis, axis), axis=-1).reshape(-1, 2)
+    pos = scene.positions()
+    near = np.zeros(len(grid), dtype=bool)
+    for h in scene.highways:
+        a, b = pos[h.u], pos[h.v]
+        ab = b - a
+        denom = float(ab @ ab)
+        if denom < 1e-12:
+            d = np.linalg.norm(grid - a, axis=1)
+        else:
+            t = np.clip(((grid - a) @ ab) / denom, 0.0, 1.0)
+            d = np.linalg.norm(grid - (a + t[:, None] * ab), axis=1)
+        near |= d <= radius
+    return float(near.mean())
+

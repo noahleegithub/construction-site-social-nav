@@ -16,7 +16,6 @@ Sections map to the proposal:
     dynamics limits           -> Section 2 (unicycle humans, bicycle vehicles)
     sensing (FOV / blindspot) -> Section 3
     radii (D_S / D_C)         -> Section 2, Eq. (2)
-    zones                     -> Section 3 ("static high risk zones")
     forecast / cost           -> Section 2 (Eq. (1)) and Eq. (3)
 """
 
@@ -33,14 +32,19 @@ import numpy as np
 ARENA_REF = 60.0                  # reference worksite side length, meters
 ARENA_SIZE = ARENA_REF            # default arena
 DEFAULT_AGENTS = 7                # M >= 5 other agents per the problem statement
+MIN_AGENTS = 5                    # M floor: 6 entities including the robot
+MAX_AGENTS = 19                   # M ceiling: 20 entities including the robot
 VEHICLE_FRACTION = 0.35           # share of the non-robot agents that are vehicles
 
+# Workstations are the lower bound; ``generate_scene`` grows them with the agent
+# count so every agent can spawn at a distinct station.
 N_HUMAN_STATIONS = 5
 N_VEHICLE_STATIONS = 3
 N_JUNCTIONS = 5
 
-JUNCTION_RADIUS_FRAC = 0.22       # fraction of arena
-STATION_RADIUS_FRAC = (0.34, 0.42)
+JUNCTION_RADIUS_FRAC = 0.28       # central mesh disk, fraction of arena
+STATION_INNER_FRAC = 0.32         # workstations live outside this central disk
+STATION_MARGIN_FRAC = 0.04        # inset from the arena boundary
 JUNCTION_MIN_SEP_REF = 12.0       # meters between junction nodes
 STATION_MIN_SEP_REF = 9.0         # meters between same-kind workstation nodes
 SPAWN_CROSS_KIND_CLEARANCE_REF = 12.0  # meters between human/vehicle at spawn
@@ -66,11 +70,6 @@ LOOKAHEAD_REF = 6.0               # m lookahead along the route
 ARRIVAL_RADIUS_REF = 1.5          # m within which a station counts as reached
 
 SF_RADIUS_REF = 6.0               # m social-force interaction radius
-
-N_ZONES = 3
-ZONE_RADIUS_RANGE_REF = (5.0, 9.0)
-ZONE_MIN_SEP_REF = 14.0
-ZONE_HAZARD_RADIUS_REF = 1.6
 
 ROBOT_RADII_REF = {"D_S": 0.4, "D_C": 1.2}
 ROBOT_SPEED_REF = 1.4             # m/s nominal
@@ -114,7 +113,6 @@ WORKING_PROBABILITY = 0.45        # fraction of agents that start stationary
 
 SF_AGENT_GAIN = 1.6               # peer repulsion weight
 SF_ROBOT_GAIN = 2.4               # robot repulsion weight (humans yield more)
-SF_ZONE_GAIN = 2.0                # high-risk zone repulsion weight
 SF_MAX_SLOWDOWN = 0.7             # fraction of nominal speed lost at contact
 
 # ---------------------------------------------------------------------------
@@ -174,11 +172,6 @@ class Layout:
     arrival_radius: float
     sf_radius: float
 
-    # high-risk zones (metres)
-    zone_radius_range: tuple
-    zone_min_sep: float
-    zone_hazard_radius: float
-
     @classmethod
     def for_arena(cls, arena: float, radius_floor: float = 0.0) -> "Layout":
         """Resolve the layout for ``arena``.
@@ -227,9 +220,6 @@ class Layout:
             lookahead=LOOKAHEAD_REF * k,
             arrival_radius=ARRIVAL_RADIUS_REF * k,
             sf_radius=max(SF_RADIUS_REF * k, 2.5 * radius_floor),
-            zone_radius_range=(ZONE_RADIUS_RANGE_REF[0] * k, ZONE_RADIUS_RANGE_REF[1] * k),
-            zone_min_sep=ZONE_MIN_SEP_REF * k,
-            zone_hazard_radius=ZONE_HAZARD_RADIUS_REF * k,
         )
 
 
@@ -249,9 +239,6 @@ VEHICLE_WHEELBASE = VEHICLE_WHEELBASE_REF
 LOOKAHEAD = LOOKAHEAD_REF
 ARRIVAL_RADIUS = ARRIVAL_RADIUS_REF
 SF_RADIUS = SF_RADIUS_REF
-ZONE_RADIUS_RANGE = ZONE_RADIUS_RANGE_REF
-ZONE_MIN_SEP = ZONE_MIN_SEP_REF
-ZONE_HAZARD_RADIUS = ZONE_HAZARD_RADIUS_REF
 ROBOT_RADII = ROBOT_RADII_REF
 ROBOT_SPEED = ROBOT_SPEED_REF
 

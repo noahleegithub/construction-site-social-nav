@@ -20,7 +20,6 @@ from construction_nav.render import (
     draw_hazard_field,
     draw_highway,
     draw_workstations,
-    draw_zones,
 )
 
 
@@ -49,7 +48,6 @@ def plot_trial(
     draw_hazard_field(ax, arena)
     for highway in scene.highways:
         draw_highway(ax, highway, scene)
-    draw_zones(ax, scene)
     draw_workstations(ax, scene)
 
     for i, traj in enumerate(env.agent_trajectories):

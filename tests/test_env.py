@@ -75,11 +75,10 @@ def test_social_force_repels():
 
 
 def _isolate(env, keep):
-    """Park every other agent far away and clear zones, isolating one interaction."""
+    """Park every other agent far away, isolating one interaction."""
     for agent in env.scene.agents:
         if agent is not keep:
             agent.pos = np.array([-1e3, -1e3])
-    env.scene.zones = []
 
 
 def test_human_yields_when_robot_is_in_view(scene):

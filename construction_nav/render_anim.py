@@ -28,7 +28,6 @@ from construction_nav.render import (
     draw_highway,
     draw_robot_goal,
     draw_workstations,
-    draw_zones,
 )
 
 
@@ -89,7 +88,6 @@ def animate_trial(
     draw_hazard_field(ax, arena)
     for highway in scene.highways:
         draw_highway(ax, highway, scene)
-    draw_zones(ax, scene)
     draw_workstations(ax, scene)
     draw_robot_goal(ax, scene)
     ax.set_xlim(0, arena)

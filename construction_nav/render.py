@@ -1,8 +1,8 @@
 """Static matplotlib rendering of a construction worksite scene.
 
 Ported from ``visualize_scene.py``. Draws the graph-structured worksite
-(highways, junctions, workstations), static high-risk zones, heterogeneous
-agents with vision cones and blindspots, and the robot with its route and goal.
+(highways, junctions, workstations), heterogeneous agents with vision cones and
+blindspots, and the robot with its route and goal.
 """
 
 from __future__ import annotations
@@ -32,8 +32,6 @@ STYLE = {
     "moving_alpha": 1.0,
     "fov_color": "#f2c744",
     "blind_color": "#c0392b",
-    "zone_face": "#8e44ad",
-    "zone_edge": "#5b2c6f",
     "hazard_face": "#e74c3c",
     "junction_color": "#37474f",
     "highway": {"face": "#dfe6ea", "edge": "#90a4ae"},
@@ -100,28 +98,6 @@ def draw_highway(ax, highway: Highway, scene: Scene) -> None:
             linewidth=0.7,
             alpha=0.6,
             zorder=1.5,
-        )
-
-
-def draw_zones(ax, scene: Scene) -> None:
-    """Static high-risk zones as concentric hazard disks."""
-    for i, z in enumerate(scene.zones):
-        ax.add_patch(
-            Circle(
-                z.center,
-                z.radius,
-                facecolor=STYLE["zone_face"],
-                edgecolor=STYLE["zone_edge"],
-                alpha=0.16,
-                linewidth=1.2,
-                zorder=1.6,
-                label="high-risk zone" if i == 0 else None,
-            )
-        )
-        ax.plot(
-            z.center[0], z.center[1],
-            marker="x", markersize=6, mew=1.4,
-            color=STYLE["zone_edge"], zorder=1.7,
         )
 
 
@@ -243,7 +219,7 @@ def draw_robot_goal(ax, scene: Scene) -> None:
     )
 
 
-def _legend_handles(show_zones: bool, show_cones: bool) -> list:
+def _legend_handles(show_cones: bool) -> list:
     handles = [
         Line2D([], [], marker="s", linestyle="none", markersize=8,
                markerfacecolor=STYLE["human"]["color"], markeredgecolor="black",
@@ -270,11 +246,6 @@ def _legend_handles(show_zones: bool, show_cones: bool) -> list:
                label="vehicle agent"),
         Line2D([], [], color=STYLE["goal_color"], linestyle=(0, (5, 5)), label="robot route"),
     ]
-    if show_zones:
-        handles.append(
-            Patch(facecolor=STYLE["zone_face"], alpha=0.3,
-                  edgecolor=STYLE["zone_edge"], label="high-risk zone")
-        )
     if show_cones:
         handles += [
             Patch(facecolor=STYLE["fov_color"], alpha=0.3, edgecolor="none", label="field of view"),
@@ -310,7 +281,6 @@ def render_arena_backdrop(
     draw_hazard_field(ax, arena)
     for highway in scene.highways:
         draw_highway(ax, highway, scene)
-    draw_zones(ax, scene)
     if C.SHOW_JUNCTIONS:
         draw_junctions(ax, scene)
     draw_workstations(ax, scene)
@@ -325,7 +295,6 @@ def render_scene(
     scene: Scene,
     out_dir: str | os.PathLike = "figures",
     show_cones: bool = True,
-    show_zones: bool = True,
     dpi: int = 300,
 ) -> list[Path]:
     """Render the scene to PNG + PDF and return the written paths."""
@@ -339,8 +308,6 @@ def render_scene(
     draw_hazard_field(ax, arena)
     for highway in scene.highways:
         draw_highway(ax, highway, scene)
-    if show_zones:
-        draw_zones(ax, scene)
     if C.SHOW_JUNCTIONS:
         draw_junctions(ax, scene)
 
@@ -366,12 +333,12 @@ def render_scene(
         f"seed={scene.seed}   M={len(scene.agents)} "
         f"({scene.num_humans} humans, {scene.num_vehicles} vehicles)   "
         f"{len(scene.nodes)} nodes / {len(scene.highways)} highways "
-        f"({n_shared} shared)   {len(scene.zones)} zones",
+        f"({n_shared} shared)",
         fontsize=12,
     )
     ax.set_axisbelow(True)
     ax.legend(
-        handles=_legend_handles(show_zones, show_cones),
+        handles=_legend_handles(show_cones),
         loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=True, fontsize=8.5,
     )
 

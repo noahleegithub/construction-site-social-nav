@@ -1,11 +1,11 @@
 # Heterogeneous Trajectory Prediction and Social Navigation for Construction Site Robots
 
 CSCE 689 course project. One robot navigates a **graph-structured construction
-worksite** toward a goal while `M >= 5` heterogeneous agents work at and travel
-between stations. Agents are **humans** (unicycle dynamics) or **vehicles**
+worksite** toward a goal while `5 <= M <= 19` heterogeneous agents work at and
+travel between stations. Agents are **humans** (unicycle dynamics) or **vehicles**
 (bicycle dynamics); they alternate between working and moving, have vision cones
-and blindspots, avoid one another with a **social-force model**, and skirt static
-**high-risk zones**. The robot observes agent histories, forecasts their futures
+and blindspots, and avoid one another with a **social-force model**. The robot
+observes agent histories, forecasts their futures
 (ADE / FDE), plans a socially compliant path, and is evaluated both in the native
 simulation and on the **Robotarium** simulator.
 
@@ -14,7 +14,7 @@ The design follows the proposal's sections:
 | Section | Topic | Where |
 |---|---|---|
 | 2 | Problem formulation, Eqs. (1)–(3) | `metrics.py`, `config.py` |
-| 3 | Environment simulation | `env.py`, `entities.py`, `graph.py`, `zones.py`, `dynamics.py` |
+| 3 | Environment simulation | `env.py`, `entities.py`, `graph.py`, `dynamics.py` |
 | 4 | Joint predictor + planner (MotionDiffuser-style) | `predict/`, `planner/joint.py` |
 | 5 | Evaluation, baselines, ablations | `evaluate.py`, `trials.py`, `render_metrics.py`, `scripts/` |
 | — | Robotarium validation | `robotarium/` |
@@ -23,7 +23,7 @@ The design follows the proposal's sections:
 
 Development proceeds in three vertical slices. **All three are complete**:
 
-- Scale-invariant worksite generator (graph, workstations, high-risk zones).
+- Scale-invariant worksite generator (graph, workstations, 5–19 agents).
 - Heterogeneous closed-loop simulation (unicycle humans, bicycle vehicles,
   working/moving state machine, social forces, FOV/blindspot sensing).
 - Metrics: ADE / FDE (Eq. 1), barrier terms `h_S`/`h_C` (Eq. 2), cost `J` (Eq. 3).
@@ -92,13 +92,16 @@ A worksite is generated from a seed by `generate_scene`:
 - **Junctions** — neutral interior vertices, connected by a shared corridor mesh
   (a Euclidean spanning tree plus extra loop edges).
 - **Workstations** — degree-1 leaves (human or vehicle) attached by a single
-  spoke; human corridors are narrow (3 m at 60 m scale), vehicle corridors wide
-  (9 m), and mesh corridors shared.
-- **High-risk zones** — static disks placed off the graph; their hazard field
-  repels agents and penalises the robot.
-- **Agents** — `M >= 5`, each holding two same-kind workstations and cycling
-  `working -> moving -> working`. Humans are unicycles (`v`, `omega`); vehicles
-  are bicycles (`v`, `delta`, `omega = v tan(delta) / L`).
+  spoke. They are sampled uniformly from a **peripheral square ring** (the whole
+  arena outside a central disk, including the corners), so the walkable network
+  spans the site instead of a thin annulus. Human corridors are narrow (3 m at
+  60 m scale), vehicle corridors wide (9 m), and mesh corridors shared. The
+  number of workstations grows with the agent count so every agent gets its own
+  start station.
+- **Agents** — `5 <= M <= 19` (6–20 entities including the robot), each holding
+  two same-kind workstations and cycling `working -> moving -> working`. Humans
+  are unicycles (`v`, `omega`); vehicles are bicycles (`v`, `delta`,
+  `omega = v tan(delta) / L`).
 - **Robot** — a unicycle shuttling between the two farthest human workstations.
 
 ### Scale invariance
@@ -124,7 +127,7 @@ and the hardware-scale Robotarium demos.
 (Radii/speeds at the 60 m reference scale; all scale linearly with the arena.)
 
 Agents follow their route by pure-pursuit blended with a social-force push from
-nearby agents and high-risk zones, and a speed slowdown under crowding.
+nearby agents, and a speed slowdown under crowding.
 **Humans yield to the robot when it is inside their field of view; vehicles hold
 their path** (Section 3), while every agent carries a rear *blindspot* cone.
 
@@ -351,10 +354,9 @@ validation. Tests that need PyTorch skip cleanly without it.
 ```
 construction_nav/
   config.py         layout + physical constants (scale-invariant via Layout)
-  entities.py       Node, Highway, Zone, Agent, Robot, Scene
+  entities.py       Node, Highway, Agent, Robot, Scene
   graph.py          mesh construction, routing, polyline geometry
   dynamics.py       unicycle / bicycle integrators
-  zones.py          high-risk zones and hazard potentials
   env.py            generate_scene + ConstructionEnv (closed loop)
   metrics.py        ADE / FDE / barriers / cost J
   evaluate.py       open-loop predictor evaluation (ADE/FDE vs H, M)
