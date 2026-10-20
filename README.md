@@ -81,7 +81,7 @@ python scripts/benchmark.py --agents 5 7 9 --epochs 80
 python scripts/evaluate_planners.py --agents 7 --trials 16
 
 # Social-navigation demos on the Robotarium (--planner joint for the learned policy)
-python -m construction_nav robotarium --agents 5 --planner joint --json figures/robotarium_demo.json
+python -m construction_nav robotarium --agents 5 --planner joint --seeds 24 --json figures/robotarium_demo.json
 
 # Regenerate every static figure at once
 python scripts/make_figures.py --out-dir figures --animate
@@ -99,7 +99,9 @@ A worksite is generated from a seed by `generate_scene`:
   spans the site instead of a thin annulus. Human corridors are narrow (3 m at
   60 m scale), vehicle corridors wide (9 m), and mesh corridors shared. The
   number of workstations grows with the agent count so every agent gets its own
-  start station.
+  start station; when two agents share a destination they take berths either
+  side of its spoke, still inside the corridor, so nobody stacks or steps off
+  the walkable area.
 - **Agents** — `5 <= M <= 19` (6–20 entities including the robot), each holding
   two same-kind workstations and cycling `working -> moving -> working`. Humans
   are unicycles (`v`, `omega`); vehicles are bicycles (`v`, `delta`,
@@ -121,19 +123,29 @@ and the hardware-scale Robotarium demos.
 | Quantity | Humans | Vehicles |
 |---|---|---|
 | Model | unicycle | bicycle (`omega = v tan(delta)/L`) |
-| Nominal speed | 1.4 m/s | 4.0 m/s |
+| Nominal speed | 1.4 m/s | 1.0 m/s |
 | Turn limit | 120 deg/s | 30 deg steering |
 | Collision radius `D_S` | 0.4 m | 1.5 m |
 | Safety radius `D_C` | 1.2 m | 3.0 m |
 
-(Radii/speeds at the 60 m reference scale; all scale linearly with the arena.)
+(Radii/speeds at the 60 m reference scale; all scale linearly with the arena.
+Site vehicles are deliberately slower than people.)
 
 Agents follow their route by pure pursuit, then project the preferred velocity
 through **ORCA** (optimal reciprocal collision avoidance). Every agent builds
 half-plane constraints against all neighbours within `orca_neighbor_dist` and
 picks the velocity closest to its preferred one that satisfies them, by exact
-enumeration of the feasible polygon's vertices. Because the recovery vector is
-split 50/50, avoidance is reciprocal rather than one-sided.
+enumeration of the feasible polygon's vertices.
+
+How the recovery vector is split:
+
+- **Vehicles take 5 %** against a human, so the human does the other 95 %:
+  everyone yields to vehicles. Like kinds split 50/50.
+- **A stationary neighbour** (e.g. someone working at a station) cannot
+  reciprocate at all, so the moving agent takes the whole recovery — otherwise a
+  5 %-responsibility vehicle would drive straight through a parked worker.
+- **The robot** is treated as a human for this split, and only joins a human's
+  constraint set when it is inside that human's field of view.
 
 Three details make ORCA work with nonholonomic bodies:
 
@@ -143,10 +155,11 @@ Three details make ORCA work with nonholonomic bodies:
 - **Reachable-velocity scaling.** A unicycle can only move along its heading, so
   a velocity the steering cannot realise within one step is scaled down instead
   of being driven at full speed — this is what stops a saturated-steering
-  vehicle creeping into the obstacle it is turning away from.
-- **Coarse-step margin.** At the 0.5 s timestep a vehicle covers 2 m per step,
-  more than its own `D_S`, so `ORCA_SAFETY_MARGIN_REF` (0.5 m) keeps the
-  combined radius above one step of travel.
+  vehicle creeping into the obstacle it is turning away from. A bicycle cannot
+  steer at zero speed, so vehicles keep a 50 % crawl rather than stalling.
+- **Coarse-step margin.** At the 0.5 s timestep a human covers 0.7 m per step, so
+  `ORCA_SAFETY_MARGIN_REF` (0.35 m) keeps the combined radius above a step of
+  travel.
 
 **Humans yield to the robot when it is inside their field of view; vehicles hold
 their path** (Section 3), while every agent carries a rear *blindspot* cone.
@@ -154,10 +167,10 @@ Vehicle corridors are wide (9 m) and mesh corridors shared.
 
 | Quantity | Value (60 m reference) |
 |---|---|
-| ORCA time horizon | 2.0 s (not scaled) |
+| ORCA time horizon | 4.0 s (not scaled) |
 | Neighbour radius | 6 m |
-| Combined radius | `max(D_S_i, D_S_j) + 0.5 m` |
-| Responsibility split | 50 / 50 |
+| Combined radius | `max(D_S_i, D_S_j) + 0.35 m` |
+| Responsibility | vehicle 5 % / human 95 %; like kinds 50/50; 100 % vs a stationary neighbour |
 
 ## Metrics (proposal Eqs. 1–3)
 
@@ -345,7 +358,8 @@ encounter of the requested kind) and then confirmed on the Robotarium, taking th
 first seed that completes safely. The shipped `figures/robotarium_demo.json`
 records the chosen seed, the minimum encounter distance, the site metrics, and
 the Robotarium validation for each case. Pass `--planner joint` to drive the robot
-with the joint planner instead of the fixed-radius baseline.
+with the joint planner instead of the fixed-radius baseline, and `--seeds N` to
+scan more candidates (the slower vehicles make a wider scan worthwhile).
 
 ## Figures
 
@@ -435,9 +449,10 @@ deliberately left out of the course timeline:
 - Agent counts run 5–19 non-robot agents (6–20 entities). At the top of that
   range the peripheral ring is densely packed, so workstation separations relax
   and the spawn clearances become soft (never below `D_S`).
-- The 0.5 s timestep is coarse relative to vehicle speed (2 m per step). ORCA's
-  0.5 m safety margin absorbs this at the reference scale; a few brief
-  agent–agent overlaps remain possible at `M = 19`.
+- The 0.5 s timestep is coarse relative to agent speed, and slow vehicles turn
+  sluggishly (a 1 m/s bicycle with a 2.5 m wheelbase has a 4.3 m minimum turning
+  radius). ORCA's 0.35 m margin absorbs the step at the reference scale; a rare
+  brief overlap between two vehicles is still possible at `M = 19`.
 - ORCA is solved in velocity space and then projected onto the unicycle/bicycle
   kinematics, so its guarantee holds for the commanded velocity, not exactly for
   the integrated pose; the reachable-velocity scaling keeps the gap small.

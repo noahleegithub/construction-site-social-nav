@@ -64,6 +64,10 @@ class Agent:
     station_a: int = -1             # start workstation node index
     station_b: int = -1             # end workstation node index
     route: list[int] = field(default_factory=list)
+    # Slot index used to stand beside the station node (0 = on the node). Slots
+    # alternate either side of the spoke, staying inside the corridor.
+    berth_a: int = 0
+    berth_b: int = 0
 
     # --- dynamic state -----------------------------------------------------
     speed: float = 0.0              # current linear velocity (m/s)

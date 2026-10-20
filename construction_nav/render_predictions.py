@@ -240,7 +240,8 @@ def render_diffusion_sequence(
                     color=colors[assign[s]], linewidth=1.3, alpha=0.6, zorder=5)
         ax.plot(agent.pos[0], agent.pos[1], marker="o", markersize=6,
                 markerfacecolor="black", markeredgecolor="white", zorder=7)
-        ax.annotate("", xy=agent.pos + agent.heading * 2.5, xytext=agent.pos,
+        ax.annotate("", xy=agent.pos + agent.heading * 2.5 * (arena / 60.0),
+                    xytext=agent.pos,
                     arrowprops=dict(arrowstyle="-|>", color="black", lw=1.4), zorder=7)
         ax.set_xlim(float(lo[0]), float(hi[0]))
         ax.set_ylim(float(lo[1]), float(hi[1]))

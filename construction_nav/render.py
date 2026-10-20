@@ -157,19 +157,31 @@ def draw_blindspot(ax, agent: Agent, blind_range: float = C.BLIND_RANGE_REF) -> 
     )
 
 
-def draw_agent(ax, agent: Agent) -> None:
+def body_scale(scene: Scene) -> float:
+    """Uniform scale from the 60 m reference site to this scene's arena.
+
+    Body/arrow sizes in ``STYLE`` are metres at the reference site; every figure
+    must multiply them by this so a miniature site does not draw arena-sized
+    agents.
+    """
+    return scene.arena_size / C.ARENA_REF
+
+
+def draw_agent(ax, agent: Agent, scale: float = 1.0) -> None:
     color = STYLE[agent.kind]["color"]
     alpha = STYLE["working_alpha"] if agent.state == "working" else STYLE["moving_alpha"]
 
     if agent.kind == "human":
-        marker = Circle(agent.pos, STYLE["human"]["size"], transform=ax.transData)
+        marker = Circle(
+            agent.pos, STYLE["human"]["size"] * scale, transform=ax.transData
+        )
         marker.set_facecolor(color)
         marker.set_alpha(alpha)
         marker.set_zorder(7)
         ax.add_patch(marker)
     else:
-        length = 2.6 * STYLE["vehicle"]["size"] / 1.6
-        width = 1.3 * STYLE["vehicle"]["size"] / 1.6
+        length = 2.6 * STYLE["vehicle"]["size"] / 1.6 * scale
+        width = 1.3 * STYLE["vehicle"]["size"] / 1.6 * scale
         rect = Rectangle(
             (-length / 2.0, -width / 2.0), length, width,
             facecolor=color, edgecolor="black", linewidth=0.5,
@@ -183,32 +195,20 @@ def draw_agent(ax, agent: Agent) -> None:
     if agent.state == "moving":
         ax.annotate(
             "",
-            xy=agent.pos + agent.heading * 2.2,
+            xy=agent.pos + agent.heading * 2.2 * scale,
             xytext=agent.pos,
             arrowprops=dict(arrowstyle="-|>", color=color, lw=1.4, alpha=alpha),
             zorder=7.5,
         )
 
 
-def draw_robot_goal(ax, scene: Scene) -> None:
+def draw_robot_route(ax, scene: Scene) -> None:
+    """Robot route plus its goal marker (no body, so animations can add one)."""
     route = route_points(scene, scene.robot_route)
     ax.plot(
         route[:, 0], route[:, 1],
         linestyle=(0, (5, 5)), color=STYLE["goal_color"], linewidth=1.6,
         zorder=6, label="robot route",
-    )
-    ax.plot(
-        scene.robot_pos[0], scene.robot_pos[1],
-        marker="s", markersize=13,
-        markerfacecolor=STYLE["robot_color"], markeredgecolor="black",
-        markeredgewidth=0.8, zorder=9, label="robot",
-    )
-    ax.annotate(
-        "",
-        xy=scene.robot_pos + scene.robot_heading * 3.2,
-        xytext=scene.robot_pos,
-        arrowprops=dict(arrowstyle="-|>", color=STYLE["robot_color"], lw=2.0),
-        zorder=9,
     )
     goal = scene.goal_pos
     ax.plot(
@@ -217,6 +217,34 @@ def draw_robot_goal(ax, scene: Scene) -> None:
         markerfacecolor=STYLE["goal_color"], markeredgecolor="black",
         markeredgewidth=0.8, zorder=9, label="goal",
     )
+
+
+def draw_robot_body(ax, scene: Scene) -> None:
+    """The robot itself: a green circle the same size as a human."""
+    scale = body_scale(scene)
+    body = Circle(
+        scene.robot_pos,
+        STYLE["human"]["size"] * scale,
+        facecolor=STYLE["robot_color"],
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=9,
+        label="robot",
+    )
+    ax.add_patch(body)
+    ax.annotate(
+        "",
+        xy=scene.robot_pos + scene.robot_heading * 3.2 * scale,
+        xytext=scene.robot_pos,
+        arrowprops=dict(arrowstyle="-|>", color=STYLE["robot_color"], lw=2.0),
+        zorder=9,
+    )
+
+
+def draw_robot_goal(ax, scene: Scene) -> None:
+    """Route, goal and robot body, for a static scene figure."""
+    draw_robot_route(ax, scene)
+    draw_robot_body(ax, scene)
 
 
 def _legend_handles(show_cones: bool) -> list:
@@ -244,6 +272,12 @@ def _legend_handles(show_cones: bool) -> list:
         Line2D([], [], marker="s", linestyle="none", markersize=7,
                markerfacecolor=STYLE["vehicle"]["color"], markeredgecolor="black",
                label="vehicle agent"),
+        Line2D([], [], marker="o", linestyle="none", markersize=7,
+               markerfacecolor=STYLE["robot_color"], markeredgecolor="black",
+               label="robot"),
+        Line2D([], [], marker="*", linestyle="none", markersize=11,
+               markerfacecolor=STYLE["goal_color"], markeredgecolor="black",
+               label="goal"),
         Line2D([], [], color=STYLE["goal_color"], linestyle=(0, (5, 5)), label="robot route"),
     ]
     if show_cones:
@@ -318,8 +352,9 @@ def render_scene(
             draw_blindspot(ax, agent, layout.blind_range)
 
     draw_workstations(ax, scene)
+    scale = body_scale(scene)
     for agent in scene.agents:
-        draw_agent(ax, agent)
+        draw_agent(ax, agent, scale=scale)
     draw_robot_goal(ax, scene)
 
     ax.set_xlim(0, arena)

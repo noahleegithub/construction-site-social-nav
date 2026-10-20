@@ -124,6 +124,51 @@ def test_orca_keeps_clearance_in_a_head_on_pass():
     assert closest >= radius - 0.05
 
 
+def test_vehicle_has_five_percent_responsibility(scene):
+    """A vehicle paired with a human takes 5 % of the recovery; the human 95 %."""
+    env = ConstructionEnv(scene)
+    human = next(a for a in scene.agents if a.kind == "human")
+    vehicle = next(a for a in scene.agents if a.kind == "vehicle")
+    _park_others(env, human, vehicle)
+    env.robot.pos = np.array([-1e3, -1e3])
+
+    vehicle.pos = np.array([10.0, 10.0])
+    vehicle.heading = np.array([1.0, 0.0])
+    vehicle.speed = vehicle.nominal_speed
+    human.pos = np.array([13.0, 10.1])
+    human.heading = np.array([-1.0, 0.0])
+    human.speed = human.nominal_speed
+
+    snapshot = env.agent_snapshot()
+    pref_v = vehicle.heading * vehicle.nominal_speed
+    pref_h = human.heading * human.nominal_speed
+    out_v = env._avoidance_velocity(vehicle, pref_v, snapshot)
+    out_h = env._avoidance_velocity(human, pref_h, snapshot)
+
+    rel_v = float(np.linalg.norm(out_v - pref_v)) / vehicle.nominal_speed
+    rel_h = float(np.linalg.norm(out_h - pref_h)) / human.nominal_speed
+    assert rel_h > 3.0 * rel_v
+
+
+def test_stationary_neighbour_gets_full_avoidance(scene):
+    """A standing agent cannot reciprocate, so the mover takes the whole recovery."""
+    env = ConstructionEnv(scene)
+    human = next(a for a in scene.agents if a.kind == "human")
+    other = next(a for a in scene.agents if a.kind == "human" and a is not human)
+    _park_others(env, human, other)
+    env.robot.pos = np.array([-1e3, -1e3])
+    human.pos = np.array([10.0, 10.0])
+    human.heading = np.array([1.0, 0.0])
+    human.speed = human.nominal_speed
+    other.pos = np.array([11.6, 10.05])
+    other.heading = np.array([0.0, 1.0])
+    other.speed = 0.0  # working
+
+    preferred = human.heading * human.nominal_speed
+    out = env._avoidance_velocity(human, preferred, env.agent_snapshot())
+    assert not np.allclose(out, preferred)
+
+
 def test_human_yields_when_robot_is_in_view(scene):
     env = ConstructionEnv(scene)
     human = next(a for a in scene.agents if a.kind == "human")
@@ -168,6 +213,47 @@ def test_blindspot_is_behind_the_agent(scene):
     behind = agent.pos - agent.heading * 2.0
     assert env.in_blindspot(agent, behind)
     assert not env.in_fov(agent, behind)
+
+
+def test_agents_never_teleport():
+    """No agent may move further in one step than its speed allows."""
+    env = ConstructionEnv(generate_scene(seed=0, num_agents=7))
+    agents = env.scene.agents
+    limit = max(a.nominal_speed for a in agents) * env.dt
+    previous = [a.pos.copy() for a in agents]
+    for _ in range(300):
+        env.step()
+        for agent, before in zip(agents, previous):
+            assert float(np.linalg.norm(agent.pos - before)) <= limit + 1e-6
+            before[...] = agent.pos
+
+
+def test_working_agents_stand_on_a_corridor():
+    scene = generate_scene(seed=0, num_agents=7)
+    env = ConstructionEnv(scene)
+    for _ in range(400):
+        env.step()
+
+    points = np.array([n.pos for n in scene.nodes])
+    layout = scene.resolved_layout
+    for agent in scene.agents:
+        if agent.state != "working":
+            continue
+        offset = min(
+            _segment_distance(agent.pos, points[h.u], points[h.v])
+            for h in scene.highways
+        )
+        half_width = (
+            layout.vehicle_highway_width if agent.kind == "vehicle"
+            else layout.human_highway_width
+        ) / 2.0
+        assert offset <= half_width + 1e-6
+
+
+def _segment_distance(p, a, b):
+    ab = b - a
+    t = float(np.clip((p - a) @ ab / (ab @ ab), 0.0, 1.0))
+    return float(np.linalg.norm(p - (a + t * ab)))
 
 
 def test_default_controller_reaches_goal():

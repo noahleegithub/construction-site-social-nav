@@ -191,7 +191,7 @@ def plot_failure_cases(
             ax.plot(arr[:, 0], arr[:, 1], color=STYLE[kind]["color"], lw=1.0, alpha=0.7)
         robot = np.array(env.robot_trajectory)
         ax.plot(robot[:, 0], robot[:, 1], color=STYLE["robot_color"], lw=2.2, label="robot")
-        ax.plot(robot[0, 0], robot[0, 1], marker="s", ms=8, color=STYLE["robot_color"],
+        ax.plot(robot[0, 0], robot[0, 1], marker="o", ms=8, color=STYLE["robot_color"],
                 markeredgecolor="black")
         goal = scene.goal_pos
         ax.plot(goal[0], goal[1], marker="*", ms=18, color=STYLE["goal_color"],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 from pathlib import Path
 
@@ -32,6 +33,9 @@ def plot_trial(
     dpi: int = 200,
 ) -> tuple[list[Path], dict]:
     """Run a trial and plot every agent's and the robot's path over the arena."""
+    # The environment advances the scene's agents in place; copy so callers can
+    # render the same scene more than once (e.g. PNG then GIF) from t = 0.
+    scene = copy.deepcopy(scene)
     env = ConstructionEnv(scene)
     reached_at = None
     for _ in range(steps):
@@ -63,7 +67,7 @@ def plot_trial(
     robot = np.array(env.robot_trajectory)
     ax.plot(robot[:, 0], robot[:, 1], color=STYLE["robot_color"], lw=2.2, zorder=8,
             label="robot path")
-    ax.plot(robot[0, 0], robot[0, 1], marker="s", ms=9,
+    ax.plot(robot[0, 0], robot[0, 1], marker="o", ms=9,
             color=STYLE["robot_color"], markeredgecolor="black", zorder=9)
     goal = scene.goal_pos
     ax.plot(goal[0], goal[1], marker="*", ms=20, color=STYLE["goal_color"],

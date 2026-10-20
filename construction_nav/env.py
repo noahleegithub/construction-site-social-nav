@@ -186,6 +186,7 @@ def generate_scene(
     # 5. Agents: two same-kind workstations each, shortest route across the mesh.
     kinds = ["vehicle"] * n_vehicles + ["human"] * n_humans
     rng.shuffle(kinds)
+    berth_count: dict[int, int] = {}
 
     used_start: dict[str, set[int]]
     used_start = {"human": {start}, "vehicle": set()}  # robot occupies its human station
@@ -207,8 +208,16 @@ def generate_scene(
         if route is None:
             raise RuntimeError("no route between same-kind workstations")
         radii = layout.radii[kind]
+        # Two agents may share a destination station; give each a berth beside
+        # the spoke so they stand clear of each other, on the corridor.
+        berth_a = berth_count.get(a, 0)
+        berth_b = berth_count.get(b, 0)
+        berth_count[a] = berth_a + 1
+        berth_count[b] = berth_b + 1
         scene.agents.append(
-            _make_spaced_agent(rng, scene, kind, a, b, route, radii, layout)
+            _make_spaced_agent(
+                rng, scene, kind, a, b, route, radii, layout, berth_a, berth_b
+            )
         )
 
     _validate_scene(scene)
@@ -220,6 +229,45 @@ def generate_scene(
 # ---------------------------------------------------------------------------
 
 
+def berth_position(
+    scene: Scene, station: int, slot: int, lateral: float, max_lateral: float
+) -> np.ndarray:
+    """Point beside ``station`` for berth ``slot``, still inside the corridor.
+
+    Slot 0 is the node itself; later slots alternate either side of the station
+    spoke, so several agents sharing a destination stand shoulder to shoulder
+    rather than stacking. The offset is capped by ``max_lateral`` so it stays on
+    the walkable corridor.
+    """
+    base = scene.nodes[station].pos
+    if slot <= 0 or lateral <= 0.0:
+        return base.copy()
+    inward = None
+    for highway in scene.highways:
+        if station in (highway.u, highway.v):
+            other = highway.v if highway.u == station else highway.u
+            direction = scene.nodes[other].pos - base
+            length = float(np.linalg.norm(direction))
+            if length > 1e-9:
+                inward = direction / length
+            break
+    if inward is None:
+        return base.copy()
+    normal = np.array([-inward[1], inward[0]])
+    sign = 1.0 if slot % 2 == 1 else -1.0
+    step = (slot + 1) // 2
+    return base + sign * min(step * lateral, max_lateral) * normal
+
+
+def berth_geometry(kind: str, radii: dict, layout: C.Layout) -> tuple[float, float]:
+    """``(lateral spacing, cap)`` for berths: separate bodies, stay on the corridor."""
+    width = (
+        layout.vehicle_highway_width if kind == "vehicle" else layout.human_highway_width
+    )
+    half = width / 2.0
+    return min(0.6 * half, 2.0 * float(radii["D_S"])), 0.9 * half
+
+
 def _make_agent(
     rng: np.random.Generator,
     scene: Scene,
@@ -229,6 +277,8 @@ def _make_agent(
     route: list[int],
     radii: dict,
     layout: C.Layout,
+    berth_a: int = 0,
+    berth_b: int = 0,
 ) -> Agent:
     points = np.array([scene.nodes[i].pos for i in route])
     state = "working" if rng.random() < C.WORKING_PROBABILITY else "moving"
@@ -236,7 +286,8 @@ def _make_agent(
     # Agents always spawn at their (distinct) start station ``a`` so no two
     # agents of a kind begin coincident; moving agents start near that station.
     if state == "working":
-        pos = points[0].copy()
+        lateral, cap = berth_geometry(kind, radii, layout)
+        pos = berth_position(scene, a, berth_a, lateral, cap)
         heading = points[1] - points[0]
     else:
         cum, _ = arc_lengths(points)
@@ -260,6 +311,8 @@ def _make_agent(
         station_a=a,
         station_b=b,
         route=list(route),
+        berth_a=berth_a,
+        berth_b=berth_b,
         nominal_speed=layout.vehicle_speed if kind == "vehicle" else layout.human_speed,
     )
     _prime_agent_dynamics(rng, agent, scene)
@@ -327,12 +380,16 @@ def _make_spaced_agent(
     route: list[int],
     radii: dict,
     layout: C.Layout,
+    berth_a: int = 0,
+    berth_b: int = 0,
 ) -> Agent:
     best: Agent | None = None
     best_score = -float("inf")
     same_sep = 0.5 * layout.station_min_sep
     for _ in range(C.SPAWN_TRIES):
-        candidate = _make_agent(rng, scene, kind, a, b, route, radii, layout)
+        candidate = _make_agent(
+            rng, scene, kind, a, b, route, radii, layout, berth_a, berth_b
+        )
         cross, same = _spawn_margins(scene, kind, candidate.pos)
         if cross >= layout.spawn_clearance and same >= same_sep:
             return candidate
@@ -563,7 +620,7 @@ class ConstructionEnv:
 
         return self.log_step(v)
 
-    def agent_snapshot(self) -> dict[str, np.ndarray]:
+    def agent_snapshot(self) -> dict[str, object]:
         """Frozen agent poses/velocities/radii used to build ORCA constraints."""
         agents = self.scene.agents
         return {
@@ -573,6 +630,7 @@ class ConstructionEnv:
                 dtype=float,
             ).reshape(-1, 2),
             "D_S": np.array([a.D_S for a in agents], dtype=float),
+            "kind": [a.kind for a in agents],
         }
 
     def log_step(self, robot_speed: float) -> StepInfo:
@@ -632,7 +690,7 @@ class ConstructionEnv:
         self,
         agent: Agent,
         integrate: bool = True,
-        snapshot: dict[str, np.ndarray] | None = None,
+        snapshot: dict[str, object] | None = None,
     ) -> tuple[float, float]:
         """Advance one agent, or (with ``integrate=False``) only compute its command.
 
@@ -681,7 +739,12 @@ class ConstructionEnv:
         else:
             max_step = max_turn * self.dt
         residual = max(0.0, abs(heading_error) - max_step)
-        speed *= float(np.cos(min(residual, 0.5 * np.pi)))
+        realisable = float(np.cos(min(residual, 0.5 * np.pi)))
+        if agent.kind == "vehicle":
+            # A bicycle cannot steer at zero speed, so scaling the speed to zero
+            # would deadlock it mid-turn. Keep a crawl instead.
+            realisable = max(realisable, 0.5)
+        speed *= realisable
         turn = C.HEADING_GAIN * heading_error
 
         if agent.kind == "vehicle":
@@ -699,55 +762,6 @@ class ConstructionEnv:
         agent.speed = speed
         return agent.speed, agent.omega
 
-    def _station_slot(self, station: int, agent: Agent) -> np.ndarray:
-        """Where an arriving agent stands at ``station``.
-
-        Stations are shared as *targets* (an agent's two stations are unique,
-        but several agents can head for the same one), so snapping every arrival
-        to the node centre would stack agents on top of each other. The agent
-        takes whichever of the centre / six ring slots is farthest from whoever
-        is already nearby -- including an agent that just finished its dwell and
-        is about to depart, which is why occupancy is distance-based rather than
-        ``state == "working"``.
-        """
-        base = self.scene.nodes[station].pos
-        # Reach past the widest body in the scene, so an arriving human does not
-        # step into the safety radius of a vehicle driving past.
-        widest = max(other.D_S for other in self.scene.agents)
-        reach = 3.0 * widest
-        occupants = [
-            other.pos
-            for other in self.scene.agents
-            if other is not agent and float(np.linalg.norm(other.pos - base)) <= reach
-        ]
-        if not occupants:
-            return base.copy()
-
-        # Slot ring: at least a full body clearance from the centre so a vehicle
-        # using the corridor past this leaf does not brush the standing agent.
-        radius = 2.0 * widest
-        outward = np.array([1.0, 0.0])
-        for highway in self.scene.highways:
-            if station in (highway.u, highway.v):
-                other = highway.v if highway.u == station else highway.u
-                direction = base - self.scene.nodes[other].pos
-                length = float(np.linalg.norm(direction))
-                if length > 1e-9:
-                    outward = direction / length
-                break
-        # Outward-facing slots first so ties prefer standing off the corridor.
-        candidates = [base]
-        for angle in np.deg2rad([0.0, 60.0, -60.0, 120.0, -120.0, 180.0]):
-            rotation = np.array([
-                [np.cos(angle), -np.sin(angle)],
-                [np.sin(angle), np.cos(angle)],
-            ])
-            candidates.append(base + radius * (rotation @ outward))
-        return max(
-            candidates,
-            key=lambda c: min(float(np.linalg.norm(c - o)) for o in occupants),
-        )
-
     def _begin_trip(self, agent: Agent) -> None:
         agent.at_station, agent.target_station = agent.target_station, agent.at_station
         agent.state = "moving"
@@ -763,14 +777,25 @@ class ConstructionEnv:
         vehicle kinematics.
         """
         points = np.array([self.scene.nodes[i].pos for i in agent.trip_route])
+        # End the polyline at the agent's berth (beside the station, still inside
+        # the corridor) so it walks there instead of being teleported on arrival.
+        station = agent.trip_route[-1]
+        slot = agent.berth_a if station == agent.station_a else agent.berth_b
+        lateral, cap = berth_geometry(agent.kind, {"D_S": agent.D_S}, self.layout)
+        points[-1] = berth_position(self.scene, station, slot, lateral, cap)
         total = route_length(points)
         s = project_arc_length(points, agent.pos)
 
-        # Arrival: within the arrival radius of the final station.
-        if total - s <= self.layout.arrival_radius:
-            agent.pos = self._station_slot(agent.trip_route[-1], agent)
+        # Arrival: near the end *along the route* and physically close to the
+        # berth. The arc-length test alone would snap an agent that is metres to
+        # the side of the final segment straight onto the station.
+        close_along = total - s <= self.layout.arrival_radius
+        close_across = float(np.linalg.norm(agent.pos - points[-1])) <= self.layout.arrival_radius
+        if close_along and close_across:
+            # Already on the corridor beside the berth: just stop, rather than
+            # snapping onto a point (which read as a jump at station arrival).
             agent.state = "working"
-            agent.at_station = agent.trip_route[-1]
+            agent.at_station = station
             agent.dwell_remaining = float(self.rng.uniform(*C.DWELL_RANGE))
             return None
 
@@ -792,22 +817,26 @@ class ConstructionEnv:
         self,
         agent: Agent,
         preferred: np.ndarray,
-        snapshot: dict[str, np.ndarray] | None = None,
+        snapshot: dict[str, object] | None = None,
     ) -> np.ndarray:
         """ORCA velocity closest to ``preferred`` for one agent.
 
         Agents avoid every neighbour within ``orca_neighbor_dist``
-        (full observability). The robot joins a **human's** constraint set only
-        when it is inside that human's field of view, and split 50/50 as usual;
-        **vehicles never avoid the robot**, so they hold their path (Section 3).
+        (full observability). The pair splits the recovery vector by
+        ``C.ORCA_RESPONSIBILITY``: vehicles take 5 % against a human, so everyone
+        else yields to them, while like kinds split 50/50. The robot joins a
+        **human's** constraint set only when it is inside that human's field of
+        view; **vehicles never avoid the robot**, so they hold their path.
         """
         snap = snapshot if snapshot is not None else self.agent_snapshot()
         pos_all = snap["pos"]
         vel_all = snap["vel"]
         ds_all = snap["D_S"]
+        kinds = snap["kind"]
         layout = self.layout
         margin = layout.orca_safety_margin
         horizon = C.ORCA_TIME_HORIZON
+        own_weight = C.ORCA_RESPONSIBILITY[agent.kind]
 
         constraints: list[tuple[np.ndarray, float]] = []
         self_index = next(
@@ -822,6 +851,14 @@ class ConstructionEnv:
             if float(np.linalg.norm(pos_all[i] - agent.pos)) > layout.orca_neighbor_dist:
                 continue
             radius = combined_radius(agent.D_S, float(ds_all[i])) + margin
+            # A stationary neighbour cannot reciprocate at all, so whoever is
+            # moving takes the whole recovery -- otherwise a 5 %-responsibility
+            # vehicle would drive straight through someone standing at a station.
+            if float(np.linalg.norm(vel_all[i])) < 1e-6:
+                share = 1.0
+            else:
+                other_weight = C.ORCA_RESPONSIBILITY[kinds[i]]
+                share = own_weight / (own_weight + other_weight)
             constraint = orca_halfplane(
                 agent.pos,
                 own_vel,
@@ -830,7 +867,7 @@ class ConstructionEnv:
                 radius,
                 horizon,
                 self.dt,
-                share=0.5,
+                share=share,
                 # Deterministic side choice for exactly collinear head-on pairs.
                 tie_break=1.0 if self_index < i else -1.0,
             )

@@ -63,7 +63,7 @@ FOV_RANGE_REF = 4.5
 BLIND_RANGE_REF = 3.5
 
 HUMAN_SPEED_REF = 1.4             # m/s nominal
-VEHICLE_SPEED_REF = 4.0           # m/s nominal
+VEHICLE_SPEED_REF = 1.0           # m/s nominal (site vehicles move slower than people)
 VEHICLE_WHEELBASE_REF = 2.5       # m
 
 LOOKAHEAD_REF = 6.0               # m lookahead along the route
@@ -73,12 +73,17 @@ ARRIVAL_RADIUS_REF = 1.5          # m within which a station counts as reached
 # Reciprocal collision avoidance (ORCA)
 # ---------------------------------------------------------------------------
 
-ORCA_TIME_HORIZON = 2.0           # s: look-ahead over which conflicts are avoided
+ORCA_TIME_HORIZON = 4.0           # s: look-ahead over which conflicts are avoided
 ORCA_NEIGHBOR_DIST_REF = 6.0      # m: neighbour interaction radius
-# Extra clearance on top of the combined radius. A vehicle covers 2 m per 0.5 s
-# step at the reference scale -- more than its own D_S -- so without a margin
-# the discretisation alone can tunnel a pair through the constraint.
-ORCA_SAFETY_MARGIN_REF = 0.5      # m
+# Recovery-weight per kind: the pair splits the recovery vector in proportion
+# ``w_i / (w_i + w_j)``. A vehicle paired with a human therefore takes
+# 1/19 / (1/19 + 1) = 5 %, and the human does the other 95 % -- everyone yields
+# to vehicles. Like kinds always split 50/50.
+ORCA_RESPONSIBILITY = {"human": 1.0, "vehicle": 1.0 / 19.0}
+# Extra clearance on top of the combined radius. A human covers 0.7 m per 0.5 s
+# step at the reference scale, so without a margin the discretisation alone can
+# tunnel a pair through the constraint.
+ORCA_SAFETY_MARGIN_REF = 0.35     # m
 
 ROBOT_RADII_REF = {"D_S": 0.4, "D_C": 1.2}
 ROBOT_SPEED_REF = 1.4             # m/s nominal
