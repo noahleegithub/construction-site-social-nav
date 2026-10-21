@@ -106,7 +106,11 @@ A worksite is generated from a seed by `generate_scene`:
   two same-kind workstations and cycling `working -> moving -> working`. Humans
   are unicycles (`v`, `omega`); vehicles are bicycles (`v`, `delta`,
   `omega = v tan(delta) / L`).
-- **Robot** — a unicycle shuttling between the two farthest human workstations.
+- **Robot** — a unicycle that visits **two goals per trial**: the farthest-apart
+  pair of human workstations, then the workstation farthest from that first goal
+  (excluding the start, so the second leg crosses the site instead of retracing
+  the first). Trials run until both are visited, which gives the crowd time to
+  produce genuine interactions.
 
 ### Scale invariance
 
@@ -171,6 +175,28 @@ Vehicle corridors are wide (9 m) and mesh corridors shared.
 | Neighbour radius | 6 m |
 | Combined radius | `max(D_S_i, D_S_j) + 0.35 m` |
 | Responsibility | vehicle 5 % / human 95 %; like kinds 50/50; 100 % vs a stationary neighbour |
+
+### Contact fallback
+
+ORCA reasons in velocity space and can still let a pair drift into contact: a
+vehicle with a 4.3 m turning circle, or two agents converging on one berth. Below
+the *body* radius `D_S_i + D_S_j` an exponential social force is added on top of
+the ORCA velocity, and any residual overlap is resolved positionally.
+
+- The band is widened by the distance the pair would cover in one step
+  (`||v_rel|| dt`), so the force fires when contact is *imminent* -- a strictly
+  reactive force switches on a step too late at `dt = 0.5 s`.
+- The force is zero above the band, so ordinary navigation stays pure ORCA.
+- A stationary neighbour gets the whole correction; moving pairs split it.
+- The positional sweep is capped at `OVERLAP_MAX_PUSH_FRAC` (50 %) of a step's
+  travel, so recovery from a deep overlap is spread over a few steps instead of
+  teleporting.
+- **The robot is deliberately excluded** from both the force and the sweep:
+  robot-to-person contact is the quantity under evaluation, and suppressing it
+  would make the collision metric vacuous.
+- Agents are clamped to the arena each step. Without a wall they could be nudged
+  out and then drift, and any later correction would snap them home from metres
+  away.
 
 ## Metrics (proposal Eqs. 1–3)
 
@@ -255,6 +281,19 @@ is exactly the "predictor quality vs planner" ablation.
 
 ## Baselines
 
+- **ORCA** (`planner.OrcaPlanner`) — **the headline baseline**: the robot runs
+  the *same* reciprocal-avoidance policy as every other agent, with its
+  preferred velocity taken from its graph route. It is given no forecast at all,
+  only the current snapshot of poses and velocities, and it takes the human side
+  of the responsibility split (so it yields to vehicles). This answers "why not
+  just be a well-behaved peer?".
+- **ORCA + forecast** (`planner.OrcaPlanner(forecast=...)`) — the same planner
+  with a prediction-aware constraint set: each neighbour contributes *both* its
+  current half-plane and one at its predicted state, so the robot cannot drive
+  through the space a neighbour currently occupies. Shipped with the
+  constant-velocity predictor so it needs no checkpoint.
+- **Pure pursuit** (`planner=None`) — no avoidance at all; the no-avoidance
+  floor.
 - **Constant velocity** (`predict.ConstantVelocityPredictor`) — finite-difference
   velocity extrapolated over the horizon.
 - **Fixed-radius, perfect knowledge** (`planner.FixedRadiusPlanner`) — the robot
@@ -301,27 +340,48 @@ and improves relative to the baselines as `M` increases.
 
 ### Planner evaluation
 
-`scripts/evaluate_planners.py` runs each planner on the same randomized sites
-(out-of-sample seeds, `M = 7`) and reports Eq. (3). 16 trials each:
+`scripts/evaluate_planners.py --baselines-only` runs the checkpoint-free planners
+on the same randomized sites (out-of-sample seeds 100-115, `M = 7`, two goals per
+trial) and reports Eq. (3). 16 trials each:
+
+**Current baselines** (checkpoint-free, so these are valid as measured):
 
 | planner | success | collision steps | `J` | travel (s) | intrusion |
 |---|---|---|---|---|---|
-| fixed-radius (oracle) | 100% | 0 | 36.59 | 34.7 | 1.91 |
-| joint (oracle) | 100% | 0 | **35.28** | 35.1 | **0.16** |
+| pursuit (no avoidance) | 100% | 24 | 90.58 | 82.2 | 8.36 |
+| **ORCA** (no prediction) | 100% | **2** | 93.13 | 85.1 | 7.99 |
+| ORCA + CV forecast | 100% | 2 | **91.67** | 85.2 | **6.42** |
+| fixed-radius (oracle) | 100% | 0 | 90.20 | 86.1 | 4.11 |
+| joint (oracle) | 100% | 2 | **88.58** | 86.4 | **1.97** |
+
+Every planner reaches both goals, so the differences are in safety and cost.
+Running the agents' own policy already cuts collision steps from 24 to 2 and
+costs only ~3 s of travel time over doing nothing: the crowd absorbs the robot
+rather than the robot avoiding the crowd. Giving ORCA a *predicted* state as well
+as the current one is what turns "does not collide" into "keeps its distance"
+(intrusion 7.99 -> 6.42, `J` down).
+
+The learned-prediction rows below are **stale** — see the banner above.
+
+| planner (stale) | success | collision steps | `J` | travel (s) | intrusion |
+|---|---|---|---|---|---|
 | joint (constant velocity) | 100% | 4 | 36.61 | 35.3 | 1.27 |
 | joint (trajectron++, reduced) | 100% | 2 | 35.85 | 35.1 | 0.75 |
 | joint (diffusion) | 100% | 1 | 35.89 | 35.1 | 0.67 |
 | joint (diffusion + safety diffusion) | 100% | 1 | 35.86 | 35.0 | 0.71 |
+| fixed-radius (oracle) | 100% | 0 | 36.59 | 34.7 | 1.91 |
+| joint (oracle) | 100% | 0 | 35.28 | 35.1 | 0.16 |
 
-Every planner reaches the goal, so the differences are all in safety and cost.
-The **predictor-quality ablation** is the three `joint (learned)` rows: a weaker
-forecast (constant velocity) collides and intrudes more, and the ordering
-constant-velocity → Trajectron++ → diffusion matches the long-horizon (`H = 16`)
-ADE ordering of the predictors, i.e. forecast quality transfers to planner
-safety. The **planner ablation** is the perfect-knowledge `joint (oracle)` row:
-the learned-diffusion planner matches the oracle's cost while the oracle keeps
-the largest margin. The fixed-radius baseline reaches the goal but with ~3x the
-intrusion of the prediction-based planner.
+The stale rows used **single-goal** trials, so their `J` and travel time are not
+comparable with the table above.
+
+In the stale set the **predictor-quality ablation** is the three `joint (learned)`
+rows: a weaker forecast (constant velocity) collides and intrudes more, and the
+ordering constant-velocity → Trajectron++ → diffusion matches the long-horizon
+(`H = 16`) ADE ordering of the predictors, i.e. forecast quality transfers to
+planner safety. The **planner ablation** is the perfect-knowledge `joint (oracle)`
+row: the learned-diffusion planner matches the oracle's cost while the oracle
+keeps the largest margin.
 
 Sweeping `lambda_1` (diffusion planner, with and without the reactive safety
 filter) makes the trade-off explicit: going from `lambda_1 = 0` to `5` cuts the
@@ -369,9 +429,15 @@ scan more candidates (the slower vehicles make a wider scan worthwhile).
 
 - `scene.{png,pdf}` — static worksite with zoning, sensing, and routes.
 - `scene_arena.png` — arena-only backdrop used behind overlays.
+- `env_steps.png` and `env_steps/0*.png` — how a scene is built, layer by layer:
+  arena and hazard field, junction graph, corridors by access, workstations,
+  agents with vision/blind spots, then the robot and its planned route.
+  Regenerate with `python scripts/make_env_steps.py`.
 - `pipeline.{png,pdf}` — MotionDiffuser pipeline schematic.
 - `diffusion_sequence.{png,pdf}` — reverse-diffusion schematic.
-- `trial.{png,pdf,gif}` — closed-loop trial paths / animation.
+- `trial.{png,pdf,gif}` — closed-loop trial paths / animation (planned route,
+  executed path, two goals). Regenerate with
+  `python scripts/make_figures.py --planner orca --animate`.
 - `benchmark_horizon.{png,pdf}` — ADE/FDE vs horizon for every model.
 - `benchmark_agents.{png,pdf}` — ADE/FDE vs agent count `M`.
 - `training_curves.{png,pdf}` — diffusion and Trajectron++ loss curves.

@@ -32,6 +32,7 @@ class TrialResult:
     freeze_time: float
     n_collision_steps: int
     J: float
+    goals_reached: int = 0
 
     @property
     def collided(self) -> bool:
@@ -48,15 +49,21 @@ def run_trial(
     lambda_freeze: float = 0.5,
     return_env: bool = False,
 ) -> TrialResult | tuple[TrialResult, ConstructionEnv]:
-    """Run one closed-loop trial and summarise it."""
+    """Run one closed-loop trial and summarise it.
+
+    ``planner=None`` runs the built-in goal-seeking pursuit controller, which is
+    the no-avoidance floor of the comparison.
+    """
     scene = generate_scene(seed=seed, num_agents=num_agents, arena=arena)
     env = ConstructionEnv(scene)
     reached = False
     for _ in range(max_steps):
-        info = env.step(planner(env))
+        info = env.step(None if planner is None else planner(env))
         if info.robot_reached_goal:
-            reached = True
-            break
+            # Keep going to the next goal; the run ends after the last one.
+            if not env.advance_robot_goal():
+                reached = True
+                break
     summary = summarize_trial(env, lambda_intrusion, lambda_freeze)
     result = TrialResult(
         seed=int(seed),
@@ -67,6 +74,7 @@ def run_trial(
         freeze_time=float(summary["freeze_time"]),
         n_collision_steps=int(summary["n_collision_steps"]),
         J=float(summary["J"]),
+        goals_reached=int(env.robot.goals_reached),
     )
     if return_env:
         return result, env

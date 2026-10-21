@@ -98,6 +98,11 @@ class Robot:
     goal: np.ndarray = field(default_factory=lambda: np.zeros(2))
     route: list[int] = field(default_factory=list)
     goal_node: int = -1
+    # Remaining goals for this run (the robot visits them in order) and how many
+    # it has already reached.
+    goals: list[int] = field(default_factory=list)
+    goal_index: int = 0
+    goals_reached: int = 0
     D_S: float = C.ROBOT_RADII["D_S"]
     D_C: float = C.ROBOT_RADII["D_C"]
     speed: float = 0.0
@@ -130,6 +135,10 @@ class Scene:
     robot_heading: np.ndarray = field(default_factory=lambda: np.array([1.0, 0.0]))
     robot_route: list[int] = field(default_factory=list)
     goal_node: int = -1
+    # Every goal the robot must visit, in order, and the full polyline through
+    # all of them -- what the figures draw as the robot's planned route.
+    robot_goals: list[int] = field(default_factory=list)
+    robot_itinerary: list[int] = field(default_factory=list)
     seed: int = 0
     n_human_stations: int = C.N_HUMAN_STATIONS
     n_vehicle_stations: int = C.N_VEHICLE_STATIONS
@@ -146,7 +155,22 @@ class Scene:
 
     @property
     def goal_pos(self) -> np.ndarray:
+        """Position of the goal the robot is currently heading for."""
         return self.nodes[self.goal_node].pos if self.goal_node >= 0 else np.zeros(2)
+
+    @property
+    def final_goal_node(self) -> int:
+        return self.robot_goals[-1] if self.robot_goals else self.goal_node
+
+    @property
+    def final_goal_pos(self) -> np.ndarray:
+        node = self.final_goal_node
+        return self.nodes[node].pos if node >= 0 else np.zeros(2)
+
+    @property
+    def planned_route(self) -> list[int]:
+        """The whole itinerary the robot intends to follow (all legs)."""
+        return self.robot_itinerary or self.robot_route
 
     @property
     def resolved_layout(self) -> "C.Layout":

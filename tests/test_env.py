@@ -216,10 +216,18 @@ def test_blindspot_is_behind_the_agent(scene):
 
 
 def test_agents_never_teleport():
-    """No agent may move further in one step than its speed allows."""
+    """No agent may move further in one step than its speed allows.
+
+    The only permitted excess is the bounded positional de-overlap, which is
+    capped at ``OVERLAP_MAX_PUSH_FRAC`` of a step's travel.
+    """
     env = ConstructionEnv(generate_scene(seed=0, num_agents=7))
     agents = env.scene.agents
-    limit = max(a.nominal_speed for a in agents) * env.dt
+    limit = (
+        max(a.nominal_speed for a in agents)
+        * env.dt
+        * (1.0 + C.OVERLAP_MAX_PUSH_FRAC)
+    )
     previous = [a.pos.copy() for a in agents]
     for _ in range(300):
         env.step()
@@ -254,6 +262,76 @@ def _segment_distance(p, a, b):
     ab = b - a
     t = float(np.clip((p - a) @ ab / (ab @ ab), 0.0, 1.0))
     return float(np.linalg.norm(p - (a + t * ab)))
+
+
+# ---------------------------------------------------------------------------
+# Contact fallback (social force)
+# ---------------------------------------------------------------------------
+
+
+def test_contact_fallback_is_inert_above_body_radius(scene):
+    """Outside D_S_i + D_S_j the fallback must not change the command at all."""
+    env = ConstructionEnv(scene)
+    agent, neighbour = scene.agents[0], scene.agents[1]
+    target = np.array([1.0, 0.0])
+    body = agent.D_S + neighbour.D_S
+    neighbour.pos = agent.pos + np.array([body + 0.5, 0.0])
+    out = env._contact_fallback(agent, target, env.agent_snapshot())
+    assert np.array_equal(out, target)
+
+
+def test_contact_fallback_pushes_away_from_contact(scene):
+    env = ConstructionEnv(scene)
+    agent, neighbour = scene.agents[0], scene.agents[1]
+    target = np.array([1.0, 0.0])
+    neighbour.pos = agent.pos + np.array([0.5 * (agent.D_S + neighbour.D_S), 0.0])
+    out = env._contact_fallback(agent, target, env.agent_snapshot())
+    assert out[0] < target[0], "the fallback should push back against the neighbour"
+
+
+def test_contact_fallback_ignores_the_robot(scene):
+    """Robot contact stays measurable, so the robot is not a fallback neighbour."""
+    env = ConstructionEnv(scene)
+    env.robot.pos = scene.agents[0].pos.copy()
+    agent = scene.agents[0]
+    target = np.array([1.0, 0.0])
+    out = env._contact_fallback(agent, target, env.agent_snapshot())
+    assert np.array_equal(out, target)
+
+
+@pytest.mark.parametrize("num_agents,max_bad_steps", [(7, 0), (19, 4)])
+def test_agents_never_overlap(num_agents, max_bad_steps):
+    """Agents keep their body radii apart -- the fallback's whole purpose.
+
+    At the densest packing a couple of brief contacts can survive the per-step
+    cap on the positional correction, so the assertion is on how *often* contact
+    happens rather than on a single sample.
+    """
+    for seed in range(2):
+        scene = generate_scene(seed=seed, num_agents=num_agents)
+        env = ConstructionEnv(scene)
+        bad_steps = 0
+        for _ in range(400):
+            env.step()
+            worst = min(
+                float(np.linalg.norm(a.pos - b.pos)) - (a.D_S + b.D_S)
+                for i, a in enumerate(scene.agents)
+                for b in scene.agents[i + 1 :]
+            )
+            bad_steps += int(worst < -0.05)
+        assert bad_steps <= max_bad_steps
+
+
+def test_agents_stay_inside_the_arena():
+    """A constraint near the edge must not let an agent drift off the site."""
+    for seed in range(2):
+        scene = generate_scene(seed=seed, num_agents=12)
+        env = ConstructionEnv(scene)
+        for _ in range(400):
+            env.step()
+            for agent in scene.agents:
+                assert np.all(agent.pos >= -1e-9)
+                assert np.all(agent.pos <= scene.arena_size + 1e-9)
 
 
 def test_default_controller_reaches_goal():

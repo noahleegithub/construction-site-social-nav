@@ -6,176 +6,759 @@
   "lambda_intrusion": 1.0,
   "lambda_freeze": 0.5,
   "planners": {
-    "fixed-radius (oracle)": {
-      "planner": "fixed-radius (oracle)",
+    "pursuit (no avoidance)": {
+      "planner": "pursuit (no avoidance)",
       "n_trials": 16,
       "success_rate": 1.0,
-      "collision_rate": 0.0,
-      "n_collision_steps": 0,
-      "mean_J": 36.592789335669195,
-      "mean_travel_time": 34.6875,
-      "mean_intrusion": 1.9052893356691885,
+      "collision_rate": 0.625,
+      "n_collision_steps": 24,
+      "mean_J": 90.58324978981867,
+      "mean_travel_time": 82.21875,
+      "mean_intrusion": 8.364499789818668,
       "mean_freeze_time": 0.0,
       "trials": [
         {
           "seed": 100,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 40.0,
-          "intrusion_integral": 4.876120183048117,
+          "travel_time": 86.5,
+          "intrusion_integral": 5.656472943669037,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 44.876120183048116
+          "J": 92.15647294366903,
+          "goals_reached": 2
         },
         {
           "seed": 101,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 42.5,
-          "intrusion_integral": 4.75384530156982,
+          "travel_time": 93.5,
+          "intrusion_integral": 36.015447330572144,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 47.25384530156982
+          "n_collision_steps": 2,
+          "J": 129.51544733057216,
+          "goals_reached": 2
         },
         {
           "seed": 102,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 38.5,
-          "intrusion_integral": 4.9998474065198595,
+          "travel_time": 77.5,
+          "intrusion_integral": 2.6348073887025585,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 43.49984740651986
+          "n_collision_steps": 1,
+          "J": 80.13480738870255,
+          "goals_reached": 2
         },
         {
           "seed": 103,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 31.0,
-          "intrusion_integral": 0.15097584567997868,
+          "travel_time": 78.0,
+          "intrusion_integral": 2.2966788713399655,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 31.15097584567998
+          "J": 80.29667887133996,
+          "goals_reached": 2
         },
         {
           "seed": 104,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 36.0,
-          "intrusion_integral": 0.20151559860984047,
+          "travel_time": 79.0,
+          "intrusion_integral": 1.555944495232437,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.20151559860984
+          "n_collision_steps": 1,
+          "J": 80.55594449523244,
+          "goals_reached": 2
         },
         {
           "seed": 105,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.26992086270840276,
+          "travel_time": 88.5,
+          "intrusion_integral": 34.277254267271324,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.2699208627084
+          "n_collision_steps": 5,
+          "J": 122.77725426727133,
+          "goals_reached": 2
         },
         {
           "seed": 106,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 33.5,
-          "intrusion_integral": 0.0,
+          "travel_time": 87.5,
+          "intrusion_integral": 1.1914863988974287,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 33.5
+          "J": 88.69148639889742,
+          "goals_reached": 2
         },
         {
           "seed": 107,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 39.5,
-          "intrusion_integral": 2.4439209848074173,
+          "travel_time": 79.5,
+          "intrusion_integral": 0.0,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 41.94392098480742
+          "J": 79.5,
+          "goals_reached": 2
         },
         {
           "seed": 108,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 2.192875367565965,
+          "travel_time": 74.5,
+          "intrusion_integral": 3.995526595655641,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.69287536756597
+          "n_collision_steps": 4,
+          "J": 78.49552659565565,
+          "goals_reached": 2
         },
         {
           "seed": 109,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 30.5,
-          "intrusion_integral": 0.0,
+          "travel_time": 84.0,
+          "intrusion_integral": 11.578942201583299,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 30.5
+          "n_collision_steps": 2,
+          "J": 95.5789422015833,
+          "goals_reached": 2
         },
         {
           "seed": 110,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 33.0,
-          "intrusion_integral": 2.6383293677530206,
+          "travel_time": 88.0,
+          "intrusion_integral": 4.251249554648927,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 35.63832936775302
+          "J": 92.25124955464892,
+          "goals_reached": 2
         },
         {
           "seed": 111,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 29.5,
-          "intrusion_integral": 0.6205099160190235,
+          "travel_time": 65.0,
+          "intrusion_integral": 17.221060945219886,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 30.120509916019024
+          "n_collision_steps": 5,
+          "J": 82.22106094521989,
+          "goals_reached": 2
         },
         {
           "seed": 112,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 32.5,
-          "intrusion_integral": 0.07487669479537529,
+          "travel_time": 84.5,
+          "intrusion_integral": 1.5532130442170122,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.57487669479538
+          "n_collision_steps": 1,
+          "J": 86.05321304421702,
+          "goals_reached": 2
         },
         {
           "seed": 113,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 6.278605372796619,
+          "travel_time": 80.0,
+          "intrusion_integral": 1.6389014183647808,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 40.27860537279662
+          "J": 81.63890141836478,
+          "goals_reached": 2
         },
         {
           "seed": 114,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 32.5,
-          "intrusion_integral": 0.36801698932090693,
+          "travel_time": 86.0,
+          "intrusion_integral": 4.9314175273098275,
           "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.86801698932091
+          "n_collision_steps": 2,
+          "J": 90.93141752730983,
+          "goals_reached": 2
         },
         {
           "seed": 115,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 0.6152694795126702,
+          "travel_time": 83.5,
+          "intrusion_integral": 5.033593654414406,
+          "freeze_time": 0.0,
+          "n_collision_steps": 1,
+          "J": 88.5335936544144,
+          "goals_reached": 2
+        }
+      ]
+    },
+    "ORCA": {
+      "planner": "ORCA",
+      "n_trials": 16,
+      "success_rate": 1.0,
+      "collision_rate": 0.0625,
+      "n_collision_steps": 2,
+      "mean_J": 93.12633272578836,
+      "mean_travel_time": 85.125,
+      "mean_intrusion": 7.985707725788365,
+      "mean_freeze_time": 0.03125,
+      "trials": [
+        {
+          "seed": 100,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 88.5,
+          "intrusion_integral": 7.0746505642147,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 35.11526947951267
+          "J": 95.57465056421469,
+          "goals_reached": 2
+        },
+        {
+          "seed": 101,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 101.0,
+          "intrusion_integral": 47.85410379659997,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 148.8541037966,
+          "goals_reached": 2
+        },
+        {
+          "seed": 102,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 98.0,
+          "intrusion_integral": 21.54397525360143,
+          "freeze_time": 0.5,
+          "n_collision_steps": 0,
+          "J": 119.79397525360143,
+          "goals_reached": 2
+        },
+        {
+          "seed": 103,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 85.0,
+          "intrusion_integral": 2.21408111330974,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 87.21408111330975,
+          "goals_reached": 2
+        },
+        {
+          "seed": 104,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 79.5,
+          "intrusion_integral": 1.2009472366674157,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 80.70094723666742,
+          "goals_reached": 2
+        },
+        {
+          "seed": 105,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 90.0,
+          "intrusion_integral": 23.288441768082308,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 113.28844176808231,
+          "goals_reached": 2
+        },
+        {
+          "seed": 106,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.0,
+          "intrusion_integral": 0.7753335157045366,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 87.77533351570453,
+          "goals_reached": 2
+        },
+        {
+          "seed": 107,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 79.5,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 79.5,
+          "goals_reached": 2
+        },
+        {
+          "seed": 108,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 74.5,
+          "intrusion_integral": 1.650881333600271,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 76.15088133360027,
+          "goals_reached": 2
+        },
+        {
+          "seed": 109,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 84.0,
+          "intrusion_integral": 5.342542581526518,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 89.34254258152652,
+          "goals_reached": 2
+        },
+        {
+          "seed": 110,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 89.5,
+          "intrusion_integral": 2.1868859685985407,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 91.68688596859855,
+          "goals_reached": 2
+        },
+        {
+          "seed": 111,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 66.0,
+          "intrusion_integral": 1.335994821574332,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 67.33599482157433,
+          "goals_reached": 2
+        },
+        {
+          "seed": 112,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 85.0,
+          "intrusion_integral": 1.348390952356112,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 86.34839095235611,
+          "goals_reached": 2
+        },
+        {
+          "seed": 113,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 80.0,
+          "intrusion_integral": 1.3700810874404334,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 81.37008108744044,
+          "goals_reached": 2
+        },
+        {
+          "seed": 114,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 88.0,
+          "intrusion_integral": 2.724436467209108,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 90.7244364672091,
+          "goals_reached": 2
+        },
+        {
+          "seed": 115,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 86.5,
+          "intrusion_integral": 7.8605771521284105,
+          "freeze_time": 0.0,
+          "n_collision_steps": 2,
+          "J": 94.36057715212841,
+          "goals_reached": 2
+        }
+      ]
+    },
+    "ORCA + CV forecast": {
+      "planner": "ORCA + CV forecast",
+      "n_trials": 16,
+      "success_rate": 1.0,
+      "collision_rate": 0.0625,
+      "n_collision_steps": 2,
+      "mean_J": 91.6680876636263,
+      "mean_travel_time": 85.25,
+      "mean_intrusion": 6.418087663626298,
+      "mean_freeze_time": 0.0,
+      "trials": [
+        {
+          "seed": 100,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 86.5,
+          "intrusion_integral": 0.4014929069878842,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 86.90149290698788,
+          "goals_reached": 2
+        },
+        {
+          "seed": 101,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 102.0,
+          "intrusion_integral": 40.71785184122244,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 142.71785184122245,
+          "goals_reached": 2
+        },
+        {
+          "seed": 102,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 98.5,
+          "intrusion_integral": 14.768706893922733,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 113.26870689392274,
+          "goals_reached": 2
+        },
+        {
+          "seed": 103,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 85.0,
+          "intrusion_integral": 2.21408111330974,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 87.21408111330975,
+          "goals_reached": 2
+        },
+        {
+          "seed": 104,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 79.5,
+          "intrusion_integral": 1.2009472366674157,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 80.70094723666742,
+          "goals_reached": 2
+        },
+        {
+          "seed": 105,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 90.0,
+          "intrusion_integral": 19.084159721054,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 109.084159721054,
+          "goals_reached": 2
+        },
+        {
+          "seed": 106,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.0,
+          "intrusion_integral": 0.7406187983575059,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 87.7406187983575,
+          "goals_reached": 2
+        },
+        {
+          "seed": 107,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 79.5,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 79.5,
+          "goals_reached": 2
+        },
+        {
+          "seed": 108,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 74.5,
+          "intrusion_integral": 1.6131972003148607,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 76.11319720031486,
+          "goals_reached": 2
+        },
+        {
+          "seed": 109,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 85.5,
+          "intrusion_integral": 3.746139303951853,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 89.24613930395185,
+          "goals_reached": 2
+        },
+        {
+          "seed": 110,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 89.0,
+          "intrusion_integral": 3.650887300270729,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 92.65088730027072,
+          "goals_reached": 2
+        },
+        {
+          "seed": 111,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 67.0,
+          "intrusion_integral": 1.4361413310111373,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 68.43614133101114,
+          "goals_reached": 2
+        },
+        {
+          "seed": 112,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 86.0,
+          "intrusion_integral": 1.236775027277511,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 87.23677502727752,
+          "goals_reached": 2
+        },
+        {
+          "seed": 113,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 80.0,
+          "intrusion_integral": 1.370235351099522,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 81.37023535109952,
+          "goals_reached": 2
+        },
+        {
+          "seed": 114,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.5,
+          "intrusion_integral": 2.453560942094904,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 89.95356094209491,
+          "goals_reached": 2
+        },
+        {
+          "seed": 115,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 86.5,
+          "intrusion_integral": 8.054607650478529,
+          "freeze_time": 0.0,
+          "n_collision_steps": 2,
+          "J": 94.55460765047853,
+          "goals_reached": 2
+        }
+      ]
+    },
+    "fixed-radius (oracle)": {
+      "planner": "fixed-radius (oracle)",
+      "n_trials": 16,
+      "success_rate": 1.0,
+      "collision_rate": 0.0,
+      "n_collision_steps": 0,
+      "mean_J": 90.1994483476155,
+      "mean_travel_time": 86.09375,
+      "mean_intrusion": 4.105698347615501,
+      "mean_freeze_time": 0.0,
+      "trials": [
+        {
+          "seed": 100,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 88.5,
+          "intrusion_integral": 6.774081673933889,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 95.27408167393389,
+          "goals_reached": 2
+        },
+        {
+          "seed": 101,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 104.5,
+          "intrusion_integral": 18.874067365633085,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 123.37406736563308,
+          "goals_reached": 2
+        },
+        {
+          "seed": 102,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 81.5,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 81.5,
+          "goals_reached": 2
+        },
+        {
+          "seed": 103,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 78.5,
+          "intrusion_integral": 1.3940792863753886,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 79.89407928637539,
+          "goals_reached": 2
+        },
+        {
+          "seed": 104,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 85.5,
+          "intrusion_integral": 2.8183318080544595,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 88.31833180805447,
+          "goals_reached": 2
+        },
+        {
+          "seed": 105,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 92.5,
+          "intrusion_integral": 12.338964626940045,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 104.83896462694004,
+          "goals_reached": 2
+        },
+        {
+          "seed": 106,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 88.5,
+          "intrusion_integral": 0.4346222262228535,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 88.93462222622286,
+          "goals_reached": 2
+        },
+        {
+          "seed": 107,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 79.5,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 79.5,
+          "goals_reached": 2
+        },
+        {
+          "seed": 108,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 76.5,
+          "intrusion_integral": 2.5076826474948897,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 79.00768264749489,
+          "goals_reached": 2
+        },
+        {
+          "seed": 109,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.5,
+          "intrusion_integral": 2.163325428483335,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 89.66332542848333,
+          "goals_reached": 2
+        },
+        {
+          "seed": 110,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 91.0,
+          "intrusion_integral": 0.7082733080068095,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 91.70827330800681,
+          "goals_reached": 2
+        },
+        {
+          "seed": 111,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 66.0,
+          "intrusion_integral": 3.4333867106126683,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 69.43338671061267,
+          "goals_reached": 2
+        },
+        {
+          "seed": 112,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 86.0,
+          "intrusion_integral": 0.40138965614646743,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 86.40138965614646,
+          "goals_reached": 2
+        },
+        {
+          "seed": 113,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 81.5,
+          "intrusion_integral": 0.5936672601729585,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 82.09366726017296,
+          "goals_reached": 2
+        },
+        {
+          "seed": 114,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 90.5,
+          "intrusion_integral": 2.303677217388477,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 92.80367721738848,
+          "goals_reached": 2
+        },
+        {
+          "seed": 115,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 99.5,
+          "intrusion_integral": 10.945624346382694,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 110.44562434638269,
+          "goals_reached": 2
         }
       ]
     },
@@ -183,958 +766,192 @@
       "planner": "joint planner (oracle)",
       "n_trials": 16,
       "success_rate": 1.0,
-      "collision_rate": 0.0,
-      "n_collision_steps": 0,
-      "mean_J": 35.283896551364805,
-      "mean_travel_time": 35.125,
-      "mean_intrusion": 0.15889655136481018,
-      "mean_freeze_time": 0.0,
-      "trials": [
-        {
-          "seed": 100,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.5
-        },
-        {
-          "seed": 101,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        },
-        {
-          "seed": 102,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.0
-        },
-        {
-          "seed": 103,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        },
-        {
-          "seed": 104,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.5,
-          "intrusion_integral": 0.1497567527125746,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.64975675271258
-        },
-        {
-          "seed": 105,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 106,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 107,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 38.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 38.5
-        },
-        {
-          "seed": 108,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 1.0791901837132278,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.07919018371323
-        },
-        {
-          "seed": 109,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 110,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 111,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.08086727371641778,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.080867273716414
-        },
-        {
-          "seed": 112,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.0
-        },
-        {
-          "seed": 113,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 1.2325306116947425,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.73253061169474
-        },
-        {
-          "seed": 114,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.5
-        },
-        {
-          "seed": 115,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        }
-      ]
-    },
-    "joint planner (constant velocity)": {
-      "planner": "joint planner (constant velocity)",
-      "n_trials": 16,
-      "success_rate": 1.0,
       "collision_rate": 0.125,
-      "n_collision_steps": 4,
-      "mean_J": 36.612597523993614,
-      "mean_travel_time": 35.28125,
-      "mean_intrusion": 1.2688475239936108,
-      "mean_freeze_time": 0.125,
-      "trials": [
-        {
-          "seed": 100,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.5
-        },
-        {
-          "seed": 101,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        },
-        {
-          "seed": 102,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.5
-        },
-        {
-          "seed": 103,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.0
-        },
-        {
-          "seed": 104,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 38.5,
-          "intrusion_integral": 0.12242330788398437,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 38.622423307883984
-        },
-        {
-          "seed": 105,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 106,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 107,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 39.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 39.0
-        },
-        {
-          "seed": 108,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 8.677440339402912,
-          "freeze_time": 1.0,
-          "n_collision_steps": 2,
-          "J": 44.677440339402914
-        },
-        {
-          "seed": 109,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 110,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.5
-        },
-        {
-          "seed": 111,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 112,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 0.9969376154202471,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.996937615420244
-        },
-        {
-          "seed": 113,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 9.617486054464361,
-          "freeze_time": 1.0,
-          "n_collision_steps": 2,
-          "J": 44.617486054464365
-        },
-        {
-          "seed": 114,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.5627200765057583,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.562720076505755
-        },
-        {
-          "seed": 115,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 36.0,
-          "intrusion_integral": 0.3245529902205071,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.32455299022051
-        }
-      ]
-    },
-    "joint planner (diffusion)": {
-      "planner": "joint planner (diffusion)",
-      "n_trials": 16,
-      "success_rate": 1.0,
-      "collision_rate": 0.0625,
-      "n_collision_steps": 1,
-      "mean_J": 35.88667944202369,
-      "mean_travel_time": 35.09375,
-      "mean_intrusion": 0.667929442023687,
-      "mean_freeze_time": 0.25,
-      "trials": [
-        {
-          "seed": 100,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 40.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 3.0,
-          "n_collision_steps": 0,
-          "J": 41.5
-        },
-        {
-          "seed": 101,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        },
-        {
-          "seed": 102,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 36.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.5
-        },
-        {
-          "seed": 103,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 33.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 33.5
-        },
-        {
-          "seed": 104,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 38.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 38.5
-        },
-        {
-          "seed": 105,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 106,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 107,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.0
-        },
-        {
-          "seed": 108,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 2.173997195898626,
-          "freeze_time": 0.5,
-          "n_collision_steps": 0,
-          "J": 36.42399719589863
-        },
-        {
-          "seed": 109,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 110,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.5
-        },
-        {
-          "seed": 111,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 112,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.30736659479200407,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.807366594792
-        },
-        {
-          "seed": 113,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 7.6367475938333556,
-          "freeze_time": 0.5,
-          "n_collision_steps": 1,
-          "J": 42.886747593833356
-        },
-        {
-          "seed": 114,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.10322564418049618,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.1032256441805
-        },
-        {
-          "seed": 115,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.46553404367450835,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.96553404367451
-        }
-      ]
-    },
-    "joint planner (trajectron++ (reduced))": {
-      "planner": "joint planner (trajectron++ (reduced))",
-      "n_trials": 16,
-      "success_rate": 1.0,
-      "collision_rate": 0.0625,
       "n_collision_steps": 2,
-      "mean_J": 35.84712143090165,
-      "mean_travel_time": 35.0625,
-      "mean_intrusion": 0.7533714309016515,
-      "mean_freeze_time": 0.0625,
+      "mean_J": 88.57839594483372,
+      "mean_travel_time": 86.4375,
+      "mean_intrusion": 1.969020944833716,
+      "mean_freeze_time": 0.34375,
       "trials": [
         {
           "seed": 100,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 36.5,
+          "travel_time": 90.5,
           "intrusion_integral": 0.0,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 36.5
+          "J": 90.5,
+          "goals_reached": 2
         },
         {
           "seed": 101,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
+          "travel_time": 97.0,
+          "intrusion_integral": 0.9195581775101531,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 35.5
+          "J": 97.91955817751015,
+          "goals_reached": 2
         },
         {
           "seed": 102,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 36.5,
-          "intrusion_integral": 0.0,
+          "travel_time": 81.5,
+          "intrusion_integral": 3.2895658917716126,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 36.5
+          "J": 84.78956589177162,
+          "goals_reached": 2
         },
         {
           "seed": 103,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 0.0,
+          "travel_time": 82.0,
+          "intrusion_integral": 1.9832230350594928,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 35.0
+          "J": 83.9832230350595,
+          "goals_reached": 2
         },
         {
           "seed": 104,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 38.0,
-          "intrusion_integral": 0.024210309366714977,
+          "travel_time": 85.0,
+          "intrusion_integral": 0.41213505518885263,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 38.024210309366715
+          "J": 85.41213505518886,
+          "goals_reached": 2
         },
         {
           "seed": 105,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 106,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 107,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 38.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 38.0
-        },
-        {
-          "seed": 108,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 1.7663488886771175,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.766348888677115
-        },
-        {
-          "seed": 109,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.5
-        },
-        {
-          "seed": 110,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 111,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.5,
-          "intrusion_integral": 0.009118509725945523,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.509118509725944
-        },
-        {
-          "seed": 112,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 0.3718895461740007,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.371889546174
-        },
-        {
-          "seed": 113,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.0,
-          "intrusion_integral": 9.767056054686034,
-          "freeze_time": 1.0,
-          "n_collision_steps": 2,
-          "J": 45.26705605468604
-        },
-        {
-          "seed": 114,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 115,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 36.5,
-          "intrusion_integral": 0.11531958579661294,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.61531958579661
-        }
-      ]
-    },
-    "joint planner (diffusion + safety diffusion)": {
-      "planner": "joint planner (diffusion + safety diffusion)",
-      "n_trials": 16,
-      "success_rate": 1.0,
-      "collision_rate": 0.0625,
-      "n_collision_steps": 1,
-      "mean_J": 35.8628827718635,
-      "mean_travel_time": 35.03125,
-      "mean_intrusion": 0.7066327718634957,
-      "mean_freeze_time": 0.25,
-      "trials": [
-        {
-          "seed": 100,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 40.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 3.0,
-          "n_collision_steps": 0,
-          "J": 41.5
-        },
-        {
-          "seed": 101,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.5
-        },
-        {
-          "seed": 102,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 36.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.5
-        },
-        {
-          "seed": 103,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 33.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 33.5
-        },
-        {
-          "seed": 104,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 38.0,
-          "intrusion_integral": 0.11204376643870095,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 38.1120437664387
-        },
-        {
-          "seed": 105,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 106,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.0
-        },
-        {
-          "seed": 107,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 37.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 37.0
-        },
-        {
-          "seed": 108,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 2.173997195898626,
-          "freeze_time": 0.5,
-          "n_collision_steps": 0,
-          "J": 36.42399719589863
-        },
-        {
-          "seed": 109,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 110,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 34.5
-        },
-        {
-          "seed": 111,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 32.0,
-          "intrusion_integral": 0.0,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 32.0
-        },
-        {
-          "seed": 112,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.30736659479200407,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 35.807366594792
-        },
-        {
-          "seed": 113,
-          "num_agents": 7,
-          "reached": true,
-          "travel_time": 34.5,
-          "intrusion_integral": 8.045248825049306,
-          "freeze_time": 0.5,
+          "travel_time": 104.0,
+          "intrusion_integral": 14.187669244134794,
+          "freeze_time": 4.5,
           "n_collision_steps": 1,
-          "J": 42.795248825049306
+          "J": 120.4376692441348,
+          "goals_reached": 2
+        },
+        {
+          "seed": 106,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 88.0,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 88.0,
+          "goals_reached": 2
+        },
+        {
+          "seed": 107,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 81.5,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 81.5,
+          "goals_reached": 2
+        },
+        {
+          "seed": 108,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 78.0,
+          "intrusion_integral": 0.0,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 78.0,
+          "goals_reached": 2
+        },
+        {
+          "seed": 109,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.0,
+          "intrusion_integral": 1.3614912669266581,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 88.36149126692666,
+          "goals_reached": 2
+        },
+        {
+          "seed": 110,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 90.5,
+          "intrusion_integral": 0.19797151273387492,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 90.69797151273387,
+          "goals_reached": 2
+        },
+        {
+          "seed": 111,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 69.0,
+          "intrusion_integral": 0.19660686957941886,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 69.19660686957941,
+          "goals_reached": 2
+        },
+        {
+          "seed": 112,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 87.5,
+          "intrusion_integral": 1.0041593198950862,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 88.50415931989508,
+          "goals_reached": 2
+        },
+        {
+          "seed": 113,
+          "num_agents": 7,
+          "reached": true,
+          "travel_time": 83.5,
+          "intrusion_integral": 0.10884847446108847,
+          "freeze_time": 0.0,
+          "n_collision_steps": 0,
+          "J": 83.60884847446108,
+          "goals_reached": 2
         },
         {
           "seed": 114,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 34.0,
-          "intrusion_integral": 0.10322564418049618,
+          "travel_time": 90.0,
+          "intrusion_integral": 0.9190479402553691,
           "freeze_time": 0.0,
           "n_collision_steps": 0,
-          "J": 34.1032256441805
+          "J": 90.91904794025537,
+          "goals_reached": 2
         },
         {
           "seed": 115,
           "num_agents": 7,
           "reached": true,
-          "travel_time": 35.5,
-          "intrusion_integral": 0.5642423234567993,
-          "freeze_time": 0.0,
-          "n_collision_steps": 0,
-          "J": 36.064242323456796
+          "travel_time": 88.0,
+          "intrusion_integral": 6.924058329823051,
+          "freeze_time": 1.0,
+          "n_collision_steps": 1,
+          "J": 95.42405832982305,
+          "goals_reached": 2
         }
       ]
     }
   },
-  "lambda_sweep": {
-    "with safety filter": {
-      "0.0": {
-        "mean_J": 35.485249321605934,
-        "mean_intrusion": 0.7664993216059375,
-        "mean_travel_time": 34.6875,
-        "success_rate": 1.0
-      },
-      "0.5": {
-        "mean_J": 35.59713002623133,
-        "mean_intrusion": 0.7846300262313342,
-        "mean_travel_time": 34.78125,
-        "success_rate": 1.0
-      },
-      "1.0": {
-        "mean_J": 35.70933899820493,
-        "mean_intrusion": 0.615588998204923,
-        "mean_travel_time": 35.03125,
-        "success_rate": 1.0
-      },
-      "2.0": {
-        "mean_J": 37.055205661893545,
-        "mean_intrusion": 0.4302056618935424,
-        "mean_travel_time": 36.0625,
-        "success_rate": 1.0
-      },
-      "5.0": {
-        "mean_J": 37.25453821711643,
-        "mean_intrusion": 0.39516321711643865,
-        "mean_travel_time": 36.25,
-        "success_rate": 1.0
-      }
-    },
-    "without safety filter": {
-      "0.0": {
-        "mean_J": 35.28010571954279,
-        "mean_intrusion": 0.6238557195427891,
-        "mean_travel_time": 34.625,
-        "success_rate": 1.0
-      },
-      "0.5": {
-        "mean_J": 35.551019295101675,
-        "mean_intrusion": 0.8010192951016782,
-        "mean_travel_time": 34.71875,
-        "success_rate": 1.0
-      },
-      "1.0": {
-        "mean_J": 35.862415045460835,
-        "mean_intrusion": 0.7530400454608324,
-        "mean_travel_time": 35.0,
-        "success_rate": 1.0
-      },
-      "2.0": {
-        "mean_J": 37.06261138903767,
-        "mean_intrusion": 0.48448638903767505,
-        "mean_travel_time": 36.03125,
-        "success_rate": 1.0
-      },
-      "5.0": {
-        "mean_J": 37.30838603473891,
-        "mean_intrusion": 0.38651103473891213,
-        "mean_travel_time": 36.3125,
-        "success_rate": 1.0
-      }
-    }
-  },
-  "failures": [
-    {
-      "seed": 113,
-      "reached": true,
-      "n_collision_steps": 0,
-      "travel_time": 34.5
-    },
-    {
-      "seed": 108,
-      "reached": true,
-      "n_collision_steps": 0,
-      "travel_time": 34.5
-    },
-    {
-      "seed": 116,
-      "reached": true,
-      "n_collision_steps": 0,
-      "travel_time": 35.5
-    },
-    {
-      "seed": 118,
-      "reached": true,
-      "n_collision_steps": 0,
-      "travel_time": 35.0
-    }
-  ]
+  "lambda_sweep": {},
+  "failures": []
 }

@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_trial = sub.add_parser("trial", help="run one closed-loop trial")
     _add_common(p_trial)
     p_trial.add_argument("--steps", type=int, default=2000, help="max simulation steps")
-    p_trial.add_argument("--planner", choices=["pursuit", "fixed-radius", "joint"],
+    p_trial.add_argument("--planner", choices=["pursuit", "orca", "fixed-radius", "joint"],
                          default="pursuit")
     p_trial.add_argument("--animate", action="store_true", help="also write a GIF")
 
@@ -78,7 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rob.add_argument("--seeds", type=int, default=8, help="seeds scanned per case")
     p_rob.add_argument("--max-steps", type=int, default=4000)
     p_rob.add_argument("--barrier", choices=["all", "robot", "none"], default="all")
-    p_rob.add_argument("--planner", choices=["fixed-radius", "joint"],
+    p_rob.add_argument("--planner", choices=["orca", "fixed-radius", "joint"],
                        default="fixed-radius")
     p_rob.add_argument("--no-animate", action="store_true")
     p_rob.add_argument("--json", type=Path, default=None, help="write a JSON summary here")
@@ -91,9 +91,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _make_planner(name: str):
     from construction_nav import config as C
-    from construction_nav.planner import FixedRadiusPlanner, JointPlanner
+    from construction_nav.planner import FixedRadiusPlanner, JointPlanner, OrcaPlanner
     from construction_nav.predict import ConstantVelocityPredictor
 
+    if name == "orca":
+        return OrcaPlanner()
     if name == "fixed-radius":
         return FixedRadiusPlanner(use_oracle=True)
     if name == "joint":

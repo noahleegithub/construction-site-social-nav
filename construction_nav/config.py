@@ -85,6 +85,24 @@ ORCA_RESPONSIBILITY = {"human": 1.0, "vehicle": 1.0 / 19.0}
 # tunnel a pair through the constraint.
 ORCA_SAFETY_MARGIN_REF = 0.35     # m
 
+# ---------------------------------------------------------------------------
+# Contact fallback (social force)
+# ---------------------------------------------------------------------------
+
+# ORCA reasons in velocity space over a 4 s horizon and can still let a pair
+# drift into contact -- a slow vehicle with a 4.3 m turning circle, or two
+# agents converging on the same station berth. Below the *body* radius
+# ``D_S_i + D_S_j`` an exponential repulsion takes over, and any residual
+# overlap is resolved positionally. The fallback is inert above that radius, so
+# ordinary navigation is pure ORCA.
+SOCIAL_FORCE_GAIN = 2.0           # correction speed, in units of nominal speed
+SOCIAL_FORCE_DECAY_REF = 0.30     # m: exponential decay length of the fallback
+SOCIAL_FORCE_MAX_MULT = 3.0       # cap on the correction, x nominal speed
+# Positional de-overlap is capped per agent per step so recovery from a deep
+# overlap takes a few steps instead of teleporting.
+OVERLAP_MAX_PUSH_FRAC = 0.5       # x speed * dt
+OVERLAP_RELAX_ITERS = 4           # separation passes before the cap is applied
+
 ROBOT_RADII_REF = {"D_S": 0.4, "D_C": 1.2}
 ROBOT_SPEED_REF = 1.4             # m/s nominal
 
@@ -178,6 +196,7 @@ class Layout:
     arrival_radius: float
     orca_neighbor_dist: float
     orca_safety_margin: float
+    social_force_decay: float
 
     @classmethod
     def for_arena(cls, arena: float, radius_floor: float = 0.0) -> "Layout":
@@ -229,6 +248,9 @@ class Layout:
             orca_neighbor_dist=max(ORCA_NEIGHBOR_DIST_REF * k, 2.5 * radius_floor),
             orca_safety_margin=max(
                 ORCA_SAFETY_MARGIN_REF * k, 0.5 * radius_floor
+            ),
+            social_force_decay=max(
+                SOCIAL_FORCE_DECAY_REF * k, 0.5 * radius_floor
             ),
         )
 

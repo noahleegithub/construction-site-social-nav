@@ -33,7 +33,7 @@ from construction_nav.render import (
 )
 
 
-def rollout(env: ConstructionEnv, planner=None, steps: int = 400) -> dict:
+def rollout(env: ConstructionEnv, planner=None, steps: int = 900) -> dict:
     """Advance the environment, recording poses/headings/states for animation.
 
     ``planner`` is a callable ``(env) -> (v, omega)`` or ``None`` for the
@@ -60,7 +60,7 @@ def rollout(env: ConstructionEnv, planner=None, steps: int = 400) -> dict:
         cmd = None if planner is None else planner(env)
         info = env.step(cmd)
         snapshot()
-        if info.robot_reached_goal:
+        if info.robot_reached_goal and not env.advance_robot_goal():
             reached = True
             break
 
@@ -72,7 +72,7 @@ def animate_trial(
     out_dir: str | os.PathLike = "figures",
     name: str = "trial",
     planner=None,
-    steps: int = 400,
+    steps: int = 900,
     fps: int = 12,
     dpi: int = 120,
     fmt: str = "gif",

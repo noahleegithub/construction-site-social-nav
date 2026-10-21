@@ -173,15 +173,30 @@ def generate_scene(
         for b in human_ws[i + 1 :]
     ]
     _, start, goal = max(pairs)
-    robot_route = shortest_path(adj_human, start, goal)
-    if robot_route is None:
+    leg_one = shortest_path(adj_human, start, goal)
+    if leg_one is None:
         raise RuntimeError("no robot route between human workstations")
-    pts = np.array([nodes[i].pos for i in robot_route])
+    # Second goal: the human workstation *farthest from the first goal*, so the
+    # second leg crosses the site instead of retracing the first. The start is
+    # excluded -- it is always a candidate (the pair above is a diameter) and
+    # choosing it would just send the robot back the way it came. Trials run
+    # until both goals are visited, which gives the crowd time to interact.
+    second = max(
+        (float(np.linalg.norm(nodes[s].pos - nodes[goal].pos)), s)
+        for s in human_ws
+        if s not in (goal, start)
+    )[1]
+    leg_two = shortest_path(adj_human, goal, second)
+    if leg_two is None:
+        raise RuntimeError("no robot route between the two goals")
+    pts = np.array([nodes[i].pos for i in leg_one])
     heading = (pts[1] - pts[0]) / np.linalg.norm(pts[1] - pts[0])
-    scene.robot_route = robot_route
+    scene.robot_route = leg_one
     scene.robot_pos = pts[0].copy()
     scene.robot_heading = heading
     scene.goal_node = goal
+    scene.robot_goals = [goal, second]
+    scene.robot_itinerary = list(leg_one) + list(leg_two[1:])
 
     # 5. Agents: two same-kind workstations each, shortest route across the mesh.
     kinds = ["vehicle"] * n_vehicles + ["human"] * n_humans
@@ -256,7 +271,20 @@ def berth_position(
     normal = np.array([-inward[1], inward[0]])
     sign = 1.0 if slot % 2 == 1 else -1.0
     step = (slot + 1) // 2
-    return base + sign * min(step * lateral, max_lateral) * normal
+    # A station can sit near the arena boundary, where a lateral berth would land
+    # outside the site -- and the agent would walk out after it. Cap the offset at
+    # whatever keeps it inside.
+    arena = float(scene.arena_size)
+    edge = 0.02 * arena
+    reach = float("inf")
+    for axis in (0, 1):
+        component = float(normal[axis])
+        if component > 1e-9:
+            reach = min(reach, (arena - edge - float(base[axis])) / component)
+        elif component < -1e-9:
+            reach = min(reach, (edge - float(base[axis])) / component)
+    magnitude = min(step * lateral, max_lateral, max(reach, 0.0))
+    return base + sign * magnitude * normal
 
 
 def berth_geometry(kind: str, radii: dict, layout: C.Layout) -> tuple[float, float]:
@@ -265,7 +293,9 @@ def berth_geometry(kind: str, radii: dict, layout: C.Layout) -> tuple[float, flo
         layout.vehicle_highway_width if kind == "vehicle" else layout.human_highway_width
     )
     half = width / 2.0
-    return min(0.6 * half, 2.0 * float(radii["D_S"])), 0.9 * half
+    # Berths stay well inside the corridor: the arrival itself can be a little
+    # off the centreline, so the berth must leave room for that.
+    return min(0.4 * half, 2.0 * float(radii["D_S"])), 0.5 * half
 
 
 def _make_agent(
@@ -350,6 +380,18 @@ def _trip(agent: Agent, scene: Scene) -> list[int]:
     adj = adjacency(scene, agent.kind)
     path = shortest_path(adj, agent.at_station, agent.target_station)
     return path or list(agent.route)
+
+
+def _deterministic_direction(i: int, j: int) -> np.ndarray:
+    """A repeatable unit vector for an exactly coincident pair.
+
+    Two agents can land on the same point (a shared berth, a saturating
+    constraint). The separation direction has to be chosen without any geometry
+    to work from, so derive it from the pair's indices -- deterministic, and
+    different for different pairs so a pile-up does not all move the same way.
+    """
+    angle = 2.0 * np.pi * ((7 * i + 13 * j) % 16) / 16.0
+    return np.array([np.cos(angle), np.sin(angle)])
 
 
 def _spawn_margins(scene: Scene, kind: str, pos: np.ndarray) -> tuple[float, float]:
@@ -505,6 +547,7 @@ class ConstructionEnv:
     scene: Scene
     dt: float = C.DT
     use_avoidance: bool = True
+    social_fallback: bool = True
     seed: int | None = None
     rng: np.random.Generator = field(init=False)
     robot: Robot = field(init=False)
@@ -527,6 +570,7 @@ class ConstructionEnv:
             goal=self.scene.goal_pos.copy(),
             route=list(self.scene.robot_route),
             goal_node=self.scene.goal_node,
+            goals=list(self.scene.robot_goals),
             D_S=self.layout.robot_radii["D_S"],
             D_C=self.layout.robot_radii["D_C"],
         )
@@ -608,6 +652,9 @@ class ConstructionEnv:
         snapshot = self.agent_snapshot()
         for agent in self.scene.agents:
             self.tick_agent(agent, snapshot=snapshot)
+        self.contain_agents()
+        if self.social_fallback:
+            self.resolve_agent_overlaps()
 
         from construction_nav.dynamics import unicycle_step
 
@@ -718,6 +765,8 @@ class ConstructionEnv:
 
         if self.use_avoidance:
             target = self._avoidance_velocity(agent, preferred, snapshot)
+            if self.social_fallback:
+                target = self._contact_fallback(agent, target, snapshot)
         else:
             target = preferred
 
@@ -786,12 +835,24 @@ class ConstructionEnv:
         total = route_length(points)
         s = project_arc_length(points, agent.pos)
 
-        # Arrival: near the end *along the route* and physically close to the
-        # berth. The arc-length test alone would snap an agent that is metres to
-        # the side of the final segment straight onto the station.
+        # Arrival: near the end *along the route*, physically close to the berth,
+        # and actually on the corridor. The arc-length test alone would let an
+        # agent that is metres to the side of the final segment "arrive".
+        nearby = point_on_polyline(points, s)[0]
+        lateral = float(np.linalg.norm(agent.pos - nearby))
         close_along = total - s <= self.layout.arrival_radius
-        close_across = float(np.linalg.norm(agent.pos - points[-1])) <= self.layout.arrival_radius
-        if close_along and close_across:
+        close_across = (
+            float(np.linalg.norm(agent.pos - points[-1]))
+            <= self.layout.arrival_radius
+        )
+        on_corridor = lateral <= 0.5 * self.layout.arrival_radius
+        max_turn = C.VEHICLE_MAX_STEER if agent.kind == "vehicle" else C.HUMAN_MAX_OMEGA
+        if close_along and close_across and on_corridor:
+            if self._berth_is_occupied(agent):
+                # Someone is still standing where this agent would settle: hold
+                # position instead of stopping on top of them, and try again
+                # once they move on.
+                return np.zeros(2), float(max_turn)
             # Already on the corridor beside the berth: just stop, rather than
             # snapping onto a point (which read as a jump at station arrival).
             agent.state = "working"
@@ -810,8 +871,23 @@ class ConstructionEnv:
         heading_error = wrap_angle(np.arctan2(desired[1], desired[0]) - agent.theta)
         align = max(0.0, float(np.cos(heading_error)))
         speed = agent.nominal_speed * (0.25 + 0.75 * align)
-        max_turn = C.VEHICLE_MAX_STEER if agent.kind == "vehicle" else C.HUMAN_MAX_OMEGA
         return desired * speed, float(max_turn)
+
+    def _berth_is_occupied(self, agent: Agent) -> bool:
+        """Is another agent standing where ``agent`` would come to rest?
+
+        Arrival no longer teleports onto the station, so without this check an
+        agent can stop half a body-length from a worker already there. The
+        margin is small -- neighbouring berths are far enough apart -- so only a
+        genuine confrontation blocks the arrival.
+        """
+        for other in self.scene.agents:
+            if other is agent:
+                continue
+            body = agent.D_S + other.D_S
+            if float(np.linalg.norm(agent.pos - other.pos)) < body + 0.25 * body:
+                return True
+        return False
 
     def _avoidance_velocity(
         self,
@@ -890,6 +966,137 @@ class ConstructionEnv:
 
         return orca_solve(preferred, constraints, agent.nominal_speed)
 
+    def _contact_fallback(
+        self,
+        agent: Agent,
+        target: np.ndarray,
+        snapshot: dict[str, object] | None = None,
+    ) -> np.ndarray:
+        """Short-range repulsion that engages only at body contact.
+
+        ORCA reasons in velocity space over a 4 s horizon and can still let a
+        pair drift inside ``D_S_i + D_S_j``: a vehicle with a 4.3 m turning
+        circle, or two agents converging on the same station berth. Below that
+        body radius an exponential social force is added on top of the ORCA
+        velocity; above it the correction is *exactly* zero, so ordinary
+        navigation remains pure ORCA.
+
+        The robot is deliberately **not** included: robot-to-person contact is
+        the quantity under evaluation, so it must not be silently suppressed.
+        """
+        snap = snapshot if snapshot is not None else self.agent_snapshot()
+        pos_all = snap["pos"]
+        vel_all = snap["vel"]
+        ds_all = snap["D_S"]
+        self_index = next(
+            k for k, candidate in enumerate(self.scene.agents) if candidate is agent
+        )
+        decay = max(self.layout.social_force_decay, 1e-6)
+        cap = C.SOCIAL_FORCE_MAX_MULT * agent.nominal_speed
+        own_vel = vel_all[self_index]
+        correction = np.zeros(2)
+        for i in range(len(self.scene.agents)):
+            if i == self_index:
+                continue
+            delta = agent.pos - pos_all[i]
+            d = float(np.linalg.norm(delta))
+            body = agent.D_S + float(ds_all[i])
+            if d > 1e-9:
+                direction = delta / d
+            else:
+                direction = _deterministic_direction(self_index, i)
+            # A force that only switches on at contact is already a step too late
+            # at dt = 0.5 s: a human and a vehicle close 0.6 m between decisions.
+            # Widen the band by the distance the pair would cover this step, so
+            # the fallback fires when contact is imminent rather than after it.
+            closing = max(0.0, -float(np.dot(own_vel - vel_all[i], direction)))
+            band = body + closing * self.dt
+            if d >= band:
+                continue
+            # A stationary neighbour cannot step aside, so the moving agent takes
+            # the whole correction -- the same rule as the ORCA split.
+            share = 1.0 if float(np.linalg.norm(vel_all[i])) < 1e-6 else 0.5
+            # ``exp(x) - 1`` is zero at the band edge, so the force switches on
+            # smoothly instead of stepping from nothing to full strength.
+            magnitude = (
+                C.SOCIAL_FORCE_GAIN
+                * agent.nominal_speed
+                * float(np.expm1((band - d) / decay))
+            )
+            correction += share * magnitude * direction
+        norm = float(np.linalg.norm(correction))
+        if norm < 1e-9:
+            return target
+        if norm > cap:
+            correction *= cap / norm
+        return target + correction
+
+    def contain_agents(self) -> None:
+        """Keep every agent inside the arena.
+
+        Agents have no wall in their ORCA set, so a constraint near the site edge
+        can nudge one out and nothing brings it back -- it then drifts, and any
+        later correction snaps it home from metres away. Clamping every step
+        bounds the excursion at a single step, which is invisible.
+        """
+        limit = float(self.scene.arena_size)
+        for agent in self.scene.agents:
+            if np.any(agent.pos < 0.0) or np.any(agent.pos > limit):
+                agent.pos = np.clip(agent.pos, 0.0, limit)
+
+    def resolve_agent_overlaps(self) -> None:
+        """Separate any agents still overlapping after integration.
+
+        A velocity command cannot undo an exact coincidence, and a pair can be
+        inside contact for part of a step. This sweep pushes overlapping pairs
+        apart along the line joining them, leaving stationary agents where they
+        stand, and repeats until the set is clean or the pass budget is spent.
+
+        The *total* displacement of an agent is then capped at
+        ``OVERLAP_MAX_PUSH_FRAC`` of what it would have travelled, so a deep
+        overlap is recovered over a few steps rather than teleporting. The robot
+        is excluded: robot-to-person contact is the quantity under evaluation.
+        """
+        agents = self.scene.agents
+        if len(agents) < 2:
+            return
+        n = len(agents)
+        origin = [a.pos.copy() for a in agents]
+        for _ in range(C.OVERLAP_RELAX_ITERS):
+            moved = False
+            for i in range(n):
+                for j in range(i + 1, n):
+                    a, b = agents[i], agents[j]
+                    delta = a.pos - b.pos
+                    d = float(np.linalg.norm(delta))
+                    body = a.D_S + b.D_S
+                    if d >= body:
+                        continue
+                    direction = (
+                        delta / d if d > 1e-9 else _deterministic_direction(i, j)
+                    )
+                    push = 0.5 * (body - d)
+                    a_fixed = a.state == "working" or a.speed < 1e-6
+                    b_fixed = b.state == "working" or b.speed < 1e-6
+                    if a_fixed and not b_fixed:
+                        b.pos = b.pos - 2.0 * push * direction
+                    elif b_fixed and not a_fixed:
+                        a.pos = a.pos + 2.0 * push * direction
+                    else:
+                        a.pos = a.pos + push * direction
+                        b.pos = b.pos - push * direction
+                    moved = True
+            if not moved:
+                break
+        for idx, agent in enumerate(agents):
+            shift = agent.pos - origin[idx]
+            limit = C.OVERLAP_MAX_PUSH_FRAC * agent.nominal_speed * self.dt
+            size = float(np.linalg.norm(shift))
+            if size > limit:
+                shift *= limit / size
+                agent.pos = origin[idx] + shift
+            agent.pos = np.clip(agent.pos, 0.0, self.scene.arena_size)
+
     # -- robot helpers ----------------------------------------------------
 
     def default_robot_command(self) -> tuple[float, float]:
@@ -913,6 +1120,27 @@ class ConstructionEnv:
 
     def _robot_reached_goal(self) -> bool:
         return float(np.linalg.norm(self.robot.pos - self.robot.goal)) <= self.layout.arrival_radius
+
+    def advance_robot_goal(self) -> bool:
+        """Move on to the next goal. Returns False when the run is complete.
+
+        Trials keep the robot travelling until it has visited every goal, which
+        is what gives the crowd time to produce real interactions.
+        """
+        self.robot.goals_reached += 1
+        self.robot.goal_index += 1
+        if self.robot.goal_index >= len(self.robot.goals):
+            return False
+        target = self.robot.goals[self.robot.goal_index]
+        route = shortest_path(
+            adjacency(self.scene, "human"), self.robot.goal_node, target
+        )
+        if route is None:  # pragma: no cover - the human network is connected
+            return False
+        self.robot.route = list(route)
+        self.robot.goal_node = target
+        self.robot.goal = self.scene.nodes[target].pos.copy()
+        return True
 
     # -- safety / cost ----------------------------------------------------
 

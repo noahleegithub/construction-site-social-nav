@@ -203,14 +203,19 @@ def draw_agent(ax, agent: Agent, scale: float = 1.0) -> None:
 
 
 def draw_robot_route(ax, scene: Scene) -> None:
-    """Robot route plus its goal marker (no body, so animations can add one)."""
-    route = route_points(scene, scene.robot_route)
+    """The robot's full planned route plus its final goal marker.
+
+    Drawn without the body so animations can add their own moving robot. The
+    route is the whole itinerary (every leg), marked with a single star at the
+    goal the run actually finishes at.
+    """
+    route = route_points(scene, scene.planned_route)
     ax.plot(
         route[:, 0], route[:, 1],
         linestyle=(0, (5, 5)), color=STYLE["goal_color"], linewidth=1.6,
         zorder=6, label="robot route",
     )
-    goal = scene.goal_pos
+    goal = scene.final_goal_pos
     ax.plot(
         goal[0], goal[1],
         marker="*", markersize=22,

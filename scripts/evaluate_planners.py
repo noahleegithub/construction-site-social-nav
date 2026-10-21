@@ -25,7 +25,8 @@ import matplotlib
 matplotlib.use("Agg")
 
 from construction_nav import config as C
-from construction_nav.planner import FixedRadiusPlanner, JointPlanner
+from construction_nav.planner import FixedRadiusPlanner, JointPlanner, OrcaPlanner
+from construction_nav.predict import ConstantVelocityPredictor
 from construction_nav.render_metrics import (
     plot_failure_cases,
     plot_lambda_sweep,
@@ -78,6 +79,10 @@ def main() -> None:
     parser.add_argument("--failure-limit", type=int, default=4)
     parser.add_argument("--out-dir", type=Path, default=Path("figures"))
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"))
+    parser.add_argument(
+        "--baselines-only", action="store_true",
+        help="skip the learned-prediction planners and the lambda_1 sweep",
+    )
     args = parser.parse_args()
 
     seeds = list(range(args.seed_start, args.seed_start + args.trials))
@@ -85,9 +90,18 @@ def main() -> None:
 
     # -- planner comparison -------------------------------------------------
     planners: dict[str, object] = {
+        # No-avoidance floor, then the ORCA baseline (no predictions at all),
+        # then ORCA given a constant-velocity forecast.
+        "pursuit (no avoidance)": None,
+        "ORCA": OrcaPlanner(),
+        "ORCA + CV forecast": OrcaPlanner(
+            forecast=ConstantVelocityPredictor(horizon=C.HORIZON_STEPS)
+        ),
         "fixed-radius (oracle)": FixedRadiusPlanner(use_oracle=True),
         "joint planner (oracle)": JointPlanner(oracle=True),
     }
+    if args.baselines_only:
+        predictors = {}
     for name, predictor in predictors.items():
         planners[f"joint planner ({name})"] = JointPlanner(predictor=predictor)
     if "diffusion" in predictors:
