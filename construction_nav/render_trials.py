@@ -91,7 +91,7 @@ def plot_trial(
     ax.set_title(
         f"Trial paths  seed={scene.seed}  M={len(scene.agents)}  "
         f"goals={env.robot.goals_reached}/{len(env.robot.goals)}  t={env.t:.1f}s  "
-        f"collisions={env.n_collision_steps}",
+        f"contact events={env.n_collision_events}",
         fontsize=11,
     )
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8.5)
@@ -109,6 +109,7 @@ def plot_trial(
         "intrusion_integral": env.intrusion_integral,
         "freeze_time": env.freeze_time,
         "n_collision_steps": env.n_collision_steps,
+        "n_collision_events": env.n_collision_events,
     }
     return [png, pdf], summary
 

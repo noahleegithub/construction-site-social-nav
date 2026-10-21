@@ -147,6 +147,7 @@ def summarize_trial(
         "intrusion_integral": env.intrusion_integral,
         "freeze_time": env.freeze_time,
         "n_collision_steps": env.n_collision_steps,
+        "n_collision_events": env.n_collision_events,
         "collided": env.n_collision_steps > 0,
         "J": J,
     }

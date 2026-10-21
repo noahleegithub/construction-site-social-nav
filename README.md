@@ -344,18 +344,25 @@ and improves relative to the baselines as `M` increases.
 on the same randomized sites (out-of-sample seeds 100-115, `M = 7`, two goals per
 trial) and reports Eq. (3). 16 trials each:
 
-| planner | prediction | role | success | collision steps | `J` | travel (s) | intrusion |
-|---|---|---|---|---|---|---|---|
-| pursuit (no avoidance) | none | floor, not counted as a baseline | 100% | 24 | 90.58 | 82.2 | 8.36 |
-| **ORCA** | none | **baseline** | 100% | **2** | 93.13 | 85.1 | 7.99 |
-| ORCA + CV forecast | constant velocity | isolation control: prediction inside a fixed reactive planner | 100% | 2 | **91.67** | 85.2 | **6.42** |
-| fixed-radius (oracle) | perfect | proposal §5 baseline, to be replaced by ST-A\* | 100% | 0 | 90.20 | 86.1 | 4.11 |
-| joint (oracle) | perfect | Eq. (3) upper bound, to be replaced by ST-A\* | 100% | 2 | **88.58** | 86.4 | **1.97** |
+| planner | prediction | role | success | contact events | (steps) | `J` | travel (s) | intrusion |
+|---|---|---|---|---|---|---|---|---|
+| pursuit (no avoidance) | none | floor, not counted as a baseline | 100% | 11 | 24 | 90.58 | 82.2 | 8.36 |
+| **ORCA** | none | **baseline** | 100% | **1** | 2 | 93.13 | 85.1 | 7.99 |
+| ORCA + CV forecast | constant velocity | isolation control: prediction inside a fixed reactive planner | 100% | **1** | 2 | **91.67** | 85.2 | **6.42** |
+| fixed-radius (oracle) | perfect | proposal §5 baseline, to be replaced by ST-A\* | 100% | **0** | 0 | 90.20 | 86.1 | 4.11 |
+| joint (oracle) | perfect | Eq. (3) upper bound, to be replaced by ST-A\* | 100% | 2 | 2 | **88.58** | 86.4 | **1.97** |
 
 All five are checkpoint-free, so the numbers are valid as measured. Every planner
 reaches both goals, so the differences are in safety and cost.
 
-Running the agents' own policy already cuts collision steps from 24 to 2, for ~3 s
+`contact events` counts one incident per agent per contact episode -- an agent
+held inside the hard radius for ten consecutive steps contributes one event, not
+ten. `(steps)` is the number of 0.5 s control steps in which *any* agent was
+inside its hard radius; the ratio of the two is the mean duration of an incident.
+The hard radius is the agent's `D_S` (0.4 m human, 1.5 m vehicle), measured
+centre-to-centre from the robot.
+
+Running the agents' own policy already cuts contact events from 11 to 1, for ~3 s
 of extra travel over doing nothing: the crowd absorbs the robot rather than the
 robot avoiding the crowd. Giving ORCA a *predicted* state in addition to the
 current one is what turns "does not collide" into "keeps its distance"

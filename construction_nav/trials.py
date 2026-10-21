@@ -33,10 +33,13 @@ class TrialResult:
     n_collision_steps: int
     J: float
     goals_reached: int = 0
+    # Distinct contact episodes, summed over agents: an agent that stays inside
+    # the hard radius for ten steps contributes one, not ten.
+    n_collision_events: int = 0
 
     @property
     def collided(self) -> bool:
-        return self.n_collision_steps > 0
+        return self.n_collision_events > 0
 
 
 def run_trial(
@@ -75,6 +78,7 @@ def run_trial(
         n_collision_steps=int(summary["n_collision_steps"]),
         J=float(summary["J"]),
         goals_reached=int(env.robot.goals_reached),
+        n_collision_events=int(summary["n_collision_events"]),
     )
     if return_env:
         return result, env
@@ -122,6 +126,12 @@ class PlannerReport:
 
     @property
     def n_collisions(self) -> int:
+        """Total contact episodes over all trials (the headline count)."""
+        return int(sum(t.n_collision_events for t in self.trials))
+
+    @property
+    def n_collision_steps(self) -> int:
+        """Total violating steps; kept to show how long contacts lasted."""
         return int(sum(t.n_collision_steps for t in self.trials))
 
     def to_json(self) -> dict:
@@ -130,7 +140,8 @@ class PlannerReport:
             "n_trials": len(self.trials),
             "success_rate": self.success_rate,
             "collision_rate": self.collision_rate,
-            "n_collision_steps": self.n_collisions,
+            "n_collision_events": self.n_collisions,
+            "n_collision_steps": self.n_collision_steps,
             "mean_J": self.mean_J,
             "mean_travel_time": self.mean_travel_time,
             "mean_intrusion": self.mean_intrusion,
@@ -166,7 +177,8 @@ def evaluate_planners(
         log(
             f"{name:<32} success {report.success_rate:5.1%}  "
             f"J {report.mean_J:7.2f}  T {report.mean_travel_time:5.1f}s  "
-            f"intrusion {report.mean_intrusion:6.2f}  collisions {report.n_collisions}"
+            f"intrusion {report.mean_intrusion:6.2f}  "
+            f"contacts {report.n_collisions} ({report.n_collision_steps} steps)"
         )
     return reports
 
@@ -198,7 +210,7 @@ def collect_failure_cases(
     results.sort(
         key=lambda item: (
             item[0].reached,
-            item[0].n_collision_steps == 0,
+            item[0].n_collision_events == 0,
             -item[0].intrusion_integral,
             -item[0].J,
         )
@@ -207,7 +219,7 @@ def collect_failure_cases(
     for result, _env in chosen:
         log(
             f"case seed={result.seed} reached={result.reached} "
-            f"collisions={result.n_collision_steps} "
+            f"contacts={result.n_collision_events} "
             f"intrusion={result.intrusion_integral:.2f} t={result.travel_time:.1f}s"
         )
     return chosen

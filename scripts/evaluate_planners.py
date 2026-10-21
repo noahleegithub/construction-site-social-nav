@@ -186,6 +186,7 @@ def main() -> None:
                 "seed": r.seed,
                 "reached": r.reached,
                 "n_collision_steps": r.n_collision_steps,
+                "n_collision_events": r.n_collision_events,
                 "travel_time": r.travel_time,
             }
             for r, _env in failures

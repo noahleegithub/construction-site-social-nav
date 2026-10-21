@@ -97,7 +97,7 @@ def plot_planner_comparison(
     colors = [_color(n, i) for i, n in enumerate(order)]
 
     panels = [
-        ("collision steps (total)", [reports[n].n_collisions for n in order]),
+        ("contact events (total)", [reports[n].n_collisions for n in order]),
         ("cost J", [reports[n].mean_J for n in order]),
         ("intrusion integral", [reports[n].mean_intrusion for n in order]),
         ("travel time (s)", [reports[n].mean_travel_time for n in order]),
@@ -215,7 +215,7 @@ def plot_failure_cases(
         ax.set_aspect("equal")
         ax.set_title(
             f"seed={result.seed}  reached={result.reached}  "
-            f"collisions={result.n_collision_steps}  "
+            f"contact events={result.n_collision_events}  "
             f"intrusion={result.intrusion_integral:.1f}",
             fontsize=10,
         )

@@ -334,6 +334,37 @@ def test_agents_stay_inside_the_arena():
                 assert np.all(agent.pos <= scene.arena_size + 1e-9)
 
 
+def test_collision_events_count_episodes_per_agent():
+    """A contact episode is counted once per agent, not once per step."""
+    scene = generate_scene(seed=0, num_agents=5)
+    env = ConstructionEnv(scene)
+    first, second = scene.agents[0], scene.agents[1]
+
+    # One agent held inside its hard radius for ten steps is one event.
+    env.robot.pos = first.pos + np.array([0.1, 0.0])
+    for _ in range(10):
+        env.log_step(0.0)
+    assert env.n_collision_events == 1
+    assert env.n_collision_steps == 10
+
+    # Leaving and coming back is a second event.
+    env.robot.pos = first.pos + np.array([10.0, 0.0])
+    env.log_step(0.0)
+    env.robot.pos = first.pos + np.array([0.1, 0.0])
+    env.log_step(0.0)
+    assert env.n_collision_events == 2
+
+    # Two agents violating at the same time count individually.
+    other = ConstructionEnv(generate_scene(seed=0, num_agents=5))
+    a, b = other.scene.agents[0], other.scene.agents[1]
+    other.robot.pos = 0.5 * (a.pos + b.pos)
+    a.pos = other.robot.pos + np.array([0.1, 0.0])
+    b.pos = other.robot.pos - np.array([0.1, 0.0])
+    other.log_step(0.0)
+    assert other.n_collision_events == 2
+    assert other.n_collision_steps == 1
+
+
 def test_default_controller_reaches_goal():
     env = ConstructionEnv(generate_scene(seed=0, num_agents=7))
     reached = False

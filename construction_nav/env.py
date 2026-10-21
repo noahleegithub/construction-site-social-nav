@@ -558,6 +558,10 @@ class ConstructionEnv:
     freeze_time: float = field(init=False, default=0.0)
     intrusion_integral: float = field(init=False, default=0.0)
     n_collision_steps: int = field(init=False, default=0)
+    # One count per agent per contact episode: incremented only when an agent
+    # enters the hard radius, not on every step it stays inside it.
+    n_collision_events: int = field(init=False, default=0)
+    _contact: np.ndarray = field(init=False, default_factory=lambda: np.zeros(0, bool))
     robot_trajectory: list[np.ndarray] = field(init=False, default_factory=list)
     agent_trajectories: list[list[np.ndarray]] = field(init=False, default_factory=list)
 
@@ -584,6 +588,8 @@ class ConstructionEnv:
         self.freeze_time = 0.0
         self.intrusion_integral = 0.0
         self.n_collision_steps = 0
+        self.n_collision_events = 0
+        self._contact = np.zeros(len(self.scene.agents), dtype=bool)
         self.robot.history = [self.robot.pos.copy()]
         self.robot_trajectory = [self.robot.pos.copy()]
         for agent in self.scene.agents:
@@ -692,9 +698,19 @@ class ConstructionEnv:
             agent.history.append(agent.pos.copy())
             self.agent_trajectories[i].append(agent.pos.copy())
 
-        min_h_S, min_h_C = self._safety_terms()
-        collision = min_h_S < 0.0
+        h_S_all = self._h_S_all()
+        violating = h_S_all < 0.0
+        min_h_S = float(h_S_all.min()) if h_S_all.size else float("inf")
+        min_h_C = min(
+            (self._h_C(self.robot.pos, a.pos, a.D_C) for a in self.scene.agents),
+            default=float("inf"),
+        )
+        collision = bool(violating.any())
         self.n_collision_steps += int(collision)
+        # A contact *episode* starts where an agent crosses into the hard radius;
+        # staying inside it for ten steps is still one event.
+        self.n_collision_events += int(np.count_nonzero(violating & ~self._contact))
+        self._contact = violating
         self.intrusion_integral += float(np.sum(self._intrusions()) * self.dt)
 
         reached = self._robot_reached_goal()
@@ -1153,14 +1169,22 @@ class ConstructionEnv:
             ]
         )
 
+    def _h_S_all(self) -> np.ndarray:
+        """Per-agent hard-constraint residual ``h_S`` (negative = violated)."""
+        return np.array(
+            [self._h_S(self.robot.pos, a.pos, a.D_S) for a in self.scene.agents],
+            dtype=float,
+        )
+
     def _safety_terms(self) -> tuple[float, float]:
-        h_S = [
-            self._h_S(self.robot.pos, a.pos, a.D_S) for a in self.scene.agents
-        ]
+        h_S = self._h_S_all()
         h_C = [
             self._h_C(self.robot.pos, a.pos, a.D_C) for a in self.scene.agents
         ]
-        return (min(h_S) if h_S else float("inf"), min(h_C) if h_C else float("inf"))
+        return (
+            float(h_S.min()) if h_S.size else float("inf"),
+            min(h_C) if h_C else float("inf"),
+        )
 
     @staticmethod
     def _h_S(p: np.ndarray, q: np.ndarray, D_S: float) -> float:
