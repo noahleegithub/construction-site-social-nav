@@ -344,24 +344,27 @@ and improves relative to the baselines as `M` increases.
 on the same randomized sites (out-of-sample seeds 100-115, `M = 7`, two goals per
 trial) and reports Eq. (3). 16 trials each:
 
-**Current baselines** (checkpoint-free, so these are valid as measured):
+| planner | prediction | role | success | collision steps | `J` | travel (s) | intrusion |
+|---|---|---|---|---|---|---|---|
+| pursuit (no avoidance) | none | floor, not counted as a baseline | 100% | 24 | 90.58 | 82.2 | 8.36 |
+| **ORCA** | none | **baseline** | 100% | **2** | 93.13 | 85.1 | 7.99 |
+| ORCA + CV forecast | constant velocity | isolation control: prediction inside a fixed reactive planner | 100% | 2 | **91.67** | 85.2 | **6.42** |
+| fixed-radius (oracle) | perfect | proposal §5 baseline, to be replaced by ST-A\* | 100% | 0 | 90.20 | 86.1 | 4.11 |
+| joint (oracle) | perfect | Eq. (3) upper bound, to be replaced by ST-A\* | 100% | 2 | **88.58** | 86.4 | **1.97** |
 
-| planner | success | collision steps | `J` | travel (s) | intrusion |
-|---|---|---|---|---|---|
-| pursuit (no avoidance) | 100% | 24 | 90.58 | 82.2 | 8.36 |
-| **ORCA** (no prediction) | 100% | **2** | 93.13 | 85.1 | 7.99 |
-| ORCA + CV forecast | 100% | 2 | **91.67** | 85.2 | **6.42** |
-| fixed-radius (oracle) | 100% | 0 | 90.20 | 86.1 | 4.11 |
-| joint (oracle) | 100% | 2 | **88.58** | 86.4 | **1.97** |
+All five are checkpoint-free, so the numbers are valid as measured. Every planner
+reaches both goals, so the differences are in safety and cost.
 
-Every planner reaches both goals, so the differences are in safety and cost.
-Running the agents' own policy already cuts collision steps from 24 to 2 and
-costs only ~3 s of travel time over doing nothing: the crowd absorbs the robot
-rather than the robot avoiding the crowd. Giving ORCA a *predicted* state as well
-as the current one is what turns "does not collide" into "keeps its distance"
+Running the agents' own policy already cuts collision steps from 24 to 2, for ~3 s
+of extra travel over doing nothing: the crowd absorbs the robot rather than the
+robot avoiding the crowd. Giving ORCA a *predicted* state in addition to the
+current one is what turns "does not collide" into "keeps its distance"
 (intrusion 7.99 -> 6.42, `J` down).
 
-The learned-prediction rows below are **stale** — see the banner above.
+**Not yet measured — pending predictor retraining.** The learned rows below are
+from the previous dynamics (social-force agents, single-goal trials), so their
+`J` and travel time are not comparable with the table above. They are kept only
+as a record, not as results:
 
 | planner (stale) | success | collision steps | `J` | travel (s) | intrusion |
 |---|---|---|---|---|---|
@@ -369,25 +372,17 @@ The learned-prediction rows below are **stale** — see the banner above.
 | joint (trajectron++, reduced) | 100% | 2 | 35.85 | 35.1 | 0.75 |
 | joint (diffusion) | 100% | 1 | 35.89 | 35.1 | 0.67 |
 | joint (diffusion + safety diffusion) | 100% | 1 | 35.86 | 35.0 | 0.71 |
-| fixed-radius (oracle) | 100% | 0 | 36.59 | 34.7 | 1.91 |
-| joint (oracle) | 100% | 0 | 35.28 | 35.1 | 0.16 |
 
-The stale rows used **single-goal** trials, so their `J` and travel time are not
-comparable with the table above.
-
-In the stale set the **predictor-quality ablation** is the three `joint (learned)`
-rows: a weaker forecast (constant velocity) collides and intrudes more, and the
-ordering constant-velocity → Trajectron++ → diffusion matches the long-horizon
-(`H = 16`) ADE ordering of the predictors, i.e. forecast quality transfers to
-planner safety. The **planner ablation** is the perfect-knowledge `joint (oracle)`
-row: the learned-diffusion planner matches the oracle's cost while the oracle
-keeps the largest margin.
+When they are re-run against the ORCA scenes, the **predictor-quality ablation**
+is those four rows (a weaker forecast should collide and intrude more), and the
+**planner ablation** is `joint (oracle)` versus the learned rows.
 
 Sweeping `lambda_1` (diffusion planner, with and without the reactive safety
-filter) makes the trade-off explicit: going from `lambda_1 = 0` to `5` cuts the
-intrusion integral from `0.77` to `0.40` and removes the remaining collision
-steps, at the price of `J` rising from `35.5` to `37.3` (about +1.5 s of travel
-time) -- the soft social cost is bought with time, as Eq. (3) intends.
+filter) made the trade-off explicit (stale, same caveat): going from
+`lambda_1 = 0` to `5` cut the intrusion integral from `0.77` to `0.40` and removed
+the remaining collision steps, at the price of `J` rising from `35.5` to `37.3`
+(about +1.5 s of travel time) -- the soft social cost is bought with time, as
+Eq. (3) intends.
 
 ## Robotarium
 
