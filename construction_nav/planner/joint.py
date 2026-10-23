@@ -92,7 +92,7 @@ class JointPlanner(Planner):
         if self._label:
             return self._label
         if self.oracle:
-            return "joint planner (oracle)"
+            return "MPC + perfect trajectory forecasting"
         pred = getattr(self.predictor, "name", type(self.predictor).__name__)
         return f"joint planner ({pred})"
 

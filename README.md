@@ -281,29 +281,42 @@ is exactly the "predictor quality vs planner" ablation.
 
 ## Baselines
 
-- **ORCA** (`planner.OrcaPlanner`) — **the headline baseline**: the robot runs
+Five planners are compared in `figures/planner_comparison.png`. Three
+answer different questions; two are perfect-knowledge references that show what
+the same controller could do if prediction were free.
+
+- **Path following** (`planner=None`) — the robot tracks a point `lookahead`
+  metres ahead on its route using the same pure-pursuit law the agents use to
+  follow theirs, with no avoidance layer at all. This is the floor: whatever
+  collision and intrusion remain is what the crowd does to a robot that does not
+  react.
+- **ORCA** (`planner.OrcaPlanner`) — **the headline baseline**. The robot runs
   the *same* reciprocal-avoidance policy as every other agent, with its
-  preferred velocity taken from its graph route. It is given no forecast at all,
-  only the current snapshot of poses and velocities, and it takes the human side
-  of the responsibility split (so it yields to vehicles). This answers "why not
-  just be a well-behaved peer?".
-- **ORCA + forecast** (`planner.OrcaPlanner(forecast=...)`) — the same planner
-  with a prediction-aware constraint set: each neighbour contributes *both* its
-  current half-plane and one at its predicted state, so the robot cannot drive
-  through the space a neighbour currently occupies. Shipped with the
-  constant-velocity predictor so it needs no checkpoint.
-- **Pure pursuit** (`planner=None`) — no avoidance at all; the no-avoidance
-  floor.
-- **Constant velocity** (`predict.ConstantVelocityPredictor`) — finite-difference
-  velocity extrapolated over the horizon.
-- **Fixed-radius, perfect knowledge** (`planner.FixedRadiusPlanner`) — the robot
-  follows its graph route by pure pursuit and, for each agent, adds a repulsive
-  velocity for the closest point of that agent's true future trajectory (from an
-  oracle rollout) inside a fixed radius `D_C`; repulsions are scaled by the
-  robot's nominal speed so behaviour is identical at every arena scale. This is
-  the planner baseline that isolates the value of the learned predictor plus
-  planner. (`use_oracle=False` swaps the oracle for the constant-velocity
-  predictor.)
+  preferred velocity taken from its graph route. It gets no forecast, only the
+  current snapshot of poses and velocities, and it takes the human side of the
+  responsibility split (so it yields to vehicles). This answers "why not just be
+  a well-behaved peer?".
+- **ORCA + Constant Velocity forecasting**
+  (`planner.OrcaPlanner(forecast=ConstantVelocityPredictor(...))`) — the same
+  planner, with each neighbour contributing *both* its current half-plane and
+  one at the position constant velocity predicts for it. Nothing about the
+  controller changes, so the difference against plain ORCA isolates the value of
+  having a future at all. It needs no checkpoint.
+- **fixed-radius avoidance + perfect trajectory forecasting**
+  (`planner.FixedRadiusPlanner(use_oracle=True)`) — the robot follows its route
+  and, for each agent, adds a repulsive velocity for the closest point of that
+  agent's *true* future trajectory (from an oracle rollout) inside a fixed
+  radius `D_C`. It has no candidate manoeuvres, no cost function and no safety
+  filter, so it answers a narrower question than the next row: **how much does
+  simply knowing the future buy, with the cheapest possible controller?**
+  (`use_oracle=False` swaps the oracle for the constant-velocity predictor.)
+- **MPC + perfect trajectory forecasting** (`planner.JointPlanner(oracle=True)`)
+  — the full planner from Section 4 with the predictor replaced by ground truth:
+  12 candidate manoeuvres (4 speed scales x 3 heading offsets) scored by Eq. (3)
+  against every agent's true future, infeasible candidates discarded, and a
+  reactive guard on the chosen command. Same privileged input as the row above,
+  better controller, therefore the **upper bound** for the learned rows that will
+  replace it.
 
 ## Evaluation
 
@@ -346,11 +359,11 @@ trial) and reports Eq. (3). 16 trials each:
 
 | planner | prediction | role | success | contact events | (steps) | `J` | travel (s) | intrusion |
 |---|---|---|---|---|---|---|---|---|
-| pursuit (no avoidance) | none | floor, not counted as a baseline | 100% | 11 | 24 | 90.58 | 82.2 | 8.36 |
+| Path following | none | floor, not counted as a baseline | 100% | 11 | 24 | 90.58 | 82.2 | 8.36 |
 | **ORCA** | none | **baseline** | 100% | **1** | 2 | 93.13 | 85.1 | 7.99 |
-| ORCA + CV forecast | constant velocity | isolation control: prediction inside a fixed reactive planner | 100% | **1** | 2 | **91.67** | 85.2 | **6.42** |
-| fixed-radius (oracle) | perfect | proposal §5 baseline, to be replaced by ST-A\* | 100% | **0** | 0 | 90.20 | 86.1 | 4.11 |
-| joint (oracle) | perfect | Eq. (3) upper bound, to be replaced by ST-A\* | 100% | 2 | 2 | **88.58** | 86.4 | **1.97** |
+| ORCA + Constant Velocity forecasting | constant velocity | isolation control: prediction inside a fixed reactive planner | 100% | **1** | 2 | **91.67** | 85.2 | **6.42** |
+| fixed-radius avoidance + perfect trajectory forecasting | perfect | reference: perfect knowledge, cheapest controller | 100% | **0** | 0 | 90.20 | 86.1 | 4.11 |
+| MPC + perfect trajectory forecasting | perfect | Eq. (3) upper bound on the same controller as the learned rows | 100% | 2 | 2 | **88.58** | 86.4 | **1.97** |
 
 All five are checkpoint-free, so the numbers are valid as measured. Every planner
 reaches both goals, so the differences are in safety and cost.
@@ -368,6 +381,17 @@ robot avoiding the crowd. Giving ORCA a *predicted* state in addition to the
 current one is what turns "does not collide" into "keeps its distance"
 (intrusion 7.99 -> 6.42, `J` down).
 
+Why the perfect-knowledge row still shows two contact events: both are workers
+walking into the robot from **outside their own field of view** (robot bearing
++122 deg and +140 deg in the human's frame, FOV half-angle 60 deg), and in both
+the robot was already stopped or crawling. The hard constraint
+`h_S = |p_R - p_m|^2 - D_S^2` is symmetric, but the robot's actuator is not: the
+planner can decline to enter a person's space, it cannot step out of one. At
+`dt = 0.5 s` a human at 0.7-0.9 m/s covers 0.35-0.45 m per decision, more than
+the 0.9-1.0 cm that separated them, so the graze is unavoidable in the final
+step. Penetration was 0.6 cm (seed 105) and 2.7 cm (seed 115). The two
+path-following and ORCA contacts on these seeds are the same phenomenon.
+
 **Not yet measured — pending predictor retraining.** The learned rows below are
 from the previous dynamics (social-force agents, single-goal trials), so their
 `J` and travel time are not comparable with the table above. They are kept only
@@ -382,7 +406,8 @@ as a record, not as results:
 
 When they are re-run against the ORCA scenes, the **predictor-quality ablation**
 is those four rows (a weaker forecast should collide and intrude more), and the
-**planner ablation** is `joint (oracle)` versus the learned rows.
+**planner ablation** is `MPC + perfect trajectory forecasting` versus the
+learned rows.
 
 Sweeping `lambda_1` (diffusion planner, with and without the reactive safety
 filter) made the trade-off explicit (stale, same caveat): going from
@@ -427,14 +452,16 @@ scan more candidates (the slower vehicles make a wider scan worthwhile).
 
 `figures/` is regenerated with `scripts/make_figures.py`,
 `scripts/train.py`, `scripts/benchmark.py`, `scripts/evaluate_planners.py` and
-`python -m construction_nav robotarium`:
+`python -m construction_nav robotarium`.
 
 - `scene.{png,pdf}` — static worksite with zoning, sensing, and routes.
 - `scene_arena.png` — arena-only backdrop used behind overlays.
 - `env_steps.png` and `env_steps/0*.png` — how a scene is built, layer by layer:
-  arena and hazard field, junction graph, corridors by access, workstations,
+  arena and hazard field, junction graph, walkable corridors, workstations,
   agents with vision/blind spots, then the robot and its planned route.
-  Regenerate with `python scripts/make_env_steps.py`.
+  Regenerate with `python scripts/make_env_steps.py --out-dir figures`.
+  Corridors are drawn as plain walkable space; which agent types may use which
+  corridor is a routing constraint in `graph.adjacency`, not a visual attribute.
 - `pipeline.{png,pdf}` — MotionDiffuser pipeline schematic.
 - `diffusion_sequence.{png,pdf}` — reverse-diffusion schematic.
 - `trial.{png,pdf,gif}` — closed-loop trial paths / animation (planned route,
@@ -447,6 +474,27 @@ scan more candidates (the slower vehicles make a wider scan worthwhile).
 - `lambda_sweep.{png,pdf}` — cost / intrusion / travel time vs `lambda_1`.
 - `failure_cases.{png,pdf}` — failure / hard cases for the joint planner.
 - `demo_*.{png,pdf,gif}` — Robotarium social-navigation cases.
+
+### Baseline encounter demos
+
+The side-by-side encounter GIFs put every planner on the same seed, the same
+crowd and the same clock, so the only difference is the robot's policy:
+
+```bash
+python scripts/find_situations.py --out figures/baselines/situations.json
+python scripts/make_baseline_gifs.py --situation all
+```
+
+`find_situations.py` records the time of the peak geometric signature for each
+encounter (head-on pedestrian, blind-spot worker, crossing vehicle, dense crowd)
+and that frame becomes the still.
+
+Every panel of a baseline GIF runs on its own copy of the same seed, so the site,
+the crowd and the clock are identical and the only difference is the robot's
+policy. Each panel carries a robot-centred magnifier: the arena is 60 m across,
+so at slide size a 0.8 m body is a few pixels and the encounter is invisible
+without it. `situations.json` records the time of the peak geometric signature,
+and that is the frame used for the still.
 
 ## Tests
 

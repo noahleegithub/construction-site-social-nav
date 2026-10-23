@@ -4,13 +4,15 @@ Writes one PNG per construction layer plus a combined grid, for slides:
 
 1. arena + off-highway hazard field
 2. junction graph (nodes and edges)
-3. walkable corridors, coloured by who may use them
+3. walkable corridors
 4. workstations and their approach spokes
 5. agents, with vision cones and blind spots
 6. the robot, its planned route and goal
 
 Each layer reuses the same drawing primitives as ``figures/scene.png`` so the
-sequence ends exactly at the shipped scene.
+sequence ends exactly at the shipped scene.  Corridors are drawn as plain
+walkable space: which agents may use which corridor is a routing constraint in
+``graph.adjacency``, not something the picture needs to encode.
 """
 
 from __future__ import annotations
@@ -25,21 +27,17 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, Polygon
 
 from construction_nav import config as C
 from construction_nav.env import generate_scene
 from construction_nav.render import (
     STYLE,
-    _corridor_quad,
     body_scale,
     draw_agent,
     draw_blindspot,
     draw_fov_cone,
     draw_hazard_field,
     draw_highway,
-    draw_junctions,
     draw_robot_goal,
     draw_workstations,
 )
@@ -47,7 +45,7 @@ from construction_nav.render import (
 LAYER_TITLES = [
     "1. Arena and off-highway hazard field",
     "2. Junction graph",
-    "3. Walkable corridors (by access)",
+    "3. Walkable corridors",
     "4. Workstations and approach spokes",
     "5. Heterogeneous agents: vision and blind spots",
     "6. Robot, planned route and goal",
@@ -83,9 +81,11 @@ def _spokes(ax, scene) -> None:
         node_v = scene.nodes[highway.v]
         if node_u.role == "workstation" or node_v.role == "workstation":
             a, b = node_u.pos, node_v.pos
+            # Neutral slate: in gold these read as the robot's route, which
+            # arrives in layer 6 and must be the only gold path on the map.
             ax.plot(
                 [a[0], b[0]], [a[1], b[1]],
-                color=STYLE["goal_color"], lw=2.0, alpha=0.6, zorder=4.1,
+                color="#7d8b93", lw=1.6, alpha=0.85, zorder=4.1,
             )
 
 
@@ -99,34 +99,6 @@ def _frame(ax, scene, title: str) -> None:
     ax.set_ylabel("y (m)")
 
 
-def _tinted_corridors(ax, scene) -> None:
-    """Tint each corridor by who may use it, on top of the neutral fill."""
-    tints = {
-        C.HUMAN: STYLE["human"]["color"],
-        C.VEHICLE: STYLE["vehicle"]["color"],
-        C.SHARED: STYLE["highway"]["face"],
-    }
-    lookup = {i: n.pos for i, n in enumerate(scene.nodes)}
-    for highway in scene.highways:
-        quad = _corridor_quad(lookup[highway.u], lookup[highway.v], highway.width)
-        colour = tints.get(highway.access, STYLE["highway"]["face"])
-        ax.add_patch(
-            Polygon(
-                quad, closed=True, facecolor=colour, edgecolor="none",
-                alpha=0.0 if highway.access == C.SHARED else 0.55,
-                antialiased=False, zorder=1.45,
-            )
-        )
-
-
-def _access_legend() -> list:
-    return [
-        Patch(facecolor=STYLE["human"]["color"], alpha=0.35, label="humans only"),
-        Patch(facecolor=STYLE["vehicle"]["color"], alpha=0.35, label="vehicles only"),
-        Patch(facecolor=STYLE["highway"]["face"], alpha=0.9, label="shared"),
-    ]
-
-
 def draw_layer(ax, scene, layer: int) -> None:
     """Draw layers ``1..layer`` cumulatively."""
     draw_hazard_field(ax, scene.arena_size)
@@ -135,7 +107,6 @@ def draw_layer(ax, scene, layer: int) -> None:
     if layer >= 3:
         for highway in scene.highways:
             draw_highway(ax, highway, scene)
-        _tinted_corridors(ax, scene)
     if layer >= 4:
         _spokes(ax, scene)
         draw_workstations(ax, scene)
@@ -169,9 +140,6 @@ def main() -> int:
     for layer in range(1, 7):
         fig, ax = plt.subplots(figsize=(7.6, 7.2))
         draw_layer(ax, scene, layer)
-        if layer == 3:
-            ax.legend(handles=_access_legend(), loc="upper left",
-                      bbox_to_anchor=(1.01, 1.0), fontsize=8.5)
         slug = LAYER_TITLES[layer - 1][3:].split(":")[0].lower()
         slug = "".join(ch if ch.isalnum() else "_" for ch in slug).strip("_")
         while "__" in slug:

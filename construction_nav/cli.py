@@ -61,8 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_trial = sub.add_parser("trial", help="run one closed-loop trial")
     _add_common(p_trial)
     p_trial.add_argument("--steps", type=int, default=2000, help="max simulation steps")
-    p_trial.add_argument("--planner", choices=["pursuit", "orca", "fixed-radius", "joint"],
-                         default="pursuit")
+    p_trial.add_argument(
+        "--planner",
+        # "pursuit" is the historical spelling of the path-following baseline.
+        choices=["path-following", "pursuit", "orca", "fixed-radius", "joint"],
+        default="path-following",
+    )
     p_trial.add_argument("--animate", action="store_true", help="also write a GIF")
 
     p_pred = sub.add_parser("predictions", help="render MotionDiffuser-style schematics")

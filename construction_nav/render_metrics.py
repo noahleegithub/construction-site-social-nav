@@ -86,6 +86,24 @@ def plot_training_curves(
     return _save(fig, out_dir, "training_curves", dpi=dpi)
 
 
+#: Compact axis labels for the planner names. Keyed by the full display name so
+#: the figures stay readable without changing what the tables report.
+SHORT_NAMES = {
+    "Path following": "path\nfollowing",
+    "ORCA": "ORCA",
+    "ORCA + Constant Velocity forecasting": "ORCA +\nvelocity\nforecast",
+    "fixed-radius avoidance + perfect trajectory forecasting":
+        "fixed-radius\n+ oracle",
+    "MPC + perfect trajectory forecasting": "MPC\n+ oracle",
+}
+
+
+def _short_label(name: str) -> str:
+    if name in SHORT_NAMES:
+        return SHORT_NAMES[name]
+    return name.replace("joint planner ", "joint ").replace(" (reduced)", "")
+
+
 def plot_planner_comparison(
     reports: Mapping[str, object],
     out_dir: str | os.PathLike,
@@ -103,18 +121,26 @@ def plot_planner_comparison(
         ("travel time (s)", [reports[n].mean_travel_time for n in order]),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
-    short = [n.replace("joint planner ", "joint ").replace(" (reduced)", "") for n in order]
+    # Axis labels are the compact forms; the full names are in the README table.
+    short = [_short_label(n) for n in order]
     for ax, (title, values) in zip(axes.ravel(), panels):
         ax.bar(range(len(order)), values, color=colors)
         ax.set_title(title)
         ax.set_xticks(range(len(order)))
-        ax.set_xticklabels(short, rotation=20, ha="right", fontsize=8)
+        ax.set_xticklabels(short, fontsize=8.5, rotation=0, linespacing=1.25)
         ax.grid(alpha=0.3, axis="y")
     mean_success = float(np.mean([reports[n].success_rate for n in order]))
     n_trials = len(next(iter(reports.values())).trials)
     fig.suptitle(
         f"Randomized-trial planner comparison  "
         f"(goal reached in {mean_success:.0%} of {n_trials} trials)", y=1.0
+    )
+    fig.text(
+        0.5, -0.01,
+        "oracle = the planner is given perfect future trajectories; "
+        "velocity forecast = ORCA given constant-velocity predictions; "
+        "unmarked planners see only the current state.",
+        ha="center", fontsize=8, color="#444444",
     )
     fig.tight_layout()
     return _save(fig, out_dir, "planner_comparison", dpi=dpi)

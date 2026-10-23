@@ -30,3 +30,6 @@ data/processed/
 *.swp
 .idea/
 .vscode/
+
+# Local course/lab artifacts
+figures/midterm/

@@ -640,7 +640,7 @@ class ConstructionEnv:
         """Advance one timestep.
 
         ``robot_cmd`` is ``(v, omega)``; when ``None`` a built-in goal-seeking
-        pure-pursuit controller is used (handy for demos and the baseline).
+        built-in path follower is used (handy for demos and the baseline).
 
         Agents update in two phases -- snapshot, then command -- so every ORCA
         constraint is built from the same state. Ticking them sequentially would
@@ -1116,7 +1116,7 @@ class ConstructionEnv:
     # -- robot helpers ----------------------------------------------------
 
     def default_robot_command(self) -> tuple[float, float]:
-        """Goal-seeking pure pursuit along the robot route."""
+        """Goal-seeking pure pursuit along the robot route (path following)."""
         points = np.array([self.scene.nodes[i].pos for i in self.robot.route])
         total = route_length(points)
         s = project_arc_length(points, self.robot.pos)

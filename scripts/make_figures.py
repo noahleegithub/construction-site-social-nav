@@ -41,8 +41,11 @@ def main() -> None:
     parser.add_argument("--arena", type=float, default=60.0)
     parser.add_argument("--out-dir", type=Path, default=Path("figures"))
     parser.add_argument("--dpi", type=int, default=300)
-    parser.add_argument("--planner", choices=["orca", "joint", "fixed-radius", "pursuit"],
-                        default="joint")
+    parser.add_argument(
+        "--planner",
+        choices=["path-following", "pursuit", "orca", "joint", "fixed-radius"],
+        default="joint",
+    )
     parser.add_argument("--animate", action="store_true", help="also write a GIF")
     args = parser.parse_args()
 

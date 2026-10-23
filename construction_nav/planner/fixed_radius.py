@@ -72,4 +72,4 @@ class FixedRadiusPlanner(Planner):
 
     @property
     def name(self) -> str:
-        return "fixed-radius (perfect knowledge)"
+        return "fixed-radius avoidance + perfect trajectory forecasting"

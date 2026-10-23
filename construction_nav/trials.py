@@ -54,7 +54,7 @@ def run_trial(
 ) -> TrialResult | tuple[TrialResult, ConstructionEnv]:
     """Run one closed-loop trial and summarise it.
 
-    ``planner=None`` runs the built-in goal-seeking pursuit controller, which is
+    ``planner=None`` runs the built-in goal-seeking path follower, which is
     the no-avoidance floor of the comparison.
     """
     scene = generate_scene(seed=seed, num_agents=num_agents, arena=arena)

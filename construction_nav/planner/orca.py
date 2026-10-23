@@ -38,7 +38,7 @@ class OrcaPlanner(Planner):
         if self.forecast is None:
             return "ORCA"
         label = getattr(self.forecast, "name", type(self.forecast).__name__)
-        return f"ORCA + forecast ({label})"
+        return f"ORCA + {label} forecasting"
 
     def _constraints(self, env: ConstructionEnv) -> list[tuple[np.ndarray, float]]:
         """ORCA half-planes against every agent the robot can see.

@@ -92,13 +92,15 @@ def main() -> None:
     planners: dict[str, object] = {
         # No-avoidance floor, then the ORCA baseline (no predictions at all),
         # then ORCA given a constant-velocity forecast.
-        "pursuit (no avoidance)": None,
+        "Path following": None,
         "ORCA": OrcaPlanner(),
-        "ORCA + CV forecast": OrcaPlanner(
+        "ORCA + Constant Velocity forecasting": OrcaPlanner(
             forecast=ConstantVelocityPredictor(horizon=C.HORIZON_STEPS)
         ),
-        "fixed-radius (oracle)": FixedRadiusPlanner(use_oracle=True),
-        "joint planner (oracle)": JointPlanner(oracle=True),
+        "fixed-radius avoidance + perfect trajectory forecasting": (
+            FixedRadiusPlanner(use_oracle=True)
+        ),
+        "MPC + perfect trajectory forecasting": JointPlanner(oracle=True),
     }
     if args.baselines_only:
         predictors = {}

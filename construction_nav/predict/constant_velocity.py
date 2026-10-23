@@ -20,3 +20,7 @@ class ConstantVelocityPredictor(Predictor):
         steps = (np.arange(1, self.horizon + 1) * self.dt)         # (H,)
         mean = last[:, None, :] + vel[:, None, :] * steps[None, :, None]
         return PredictorOutput(mean=mean)
+
+    @property
+    def name(self) -> str:
+        return "Constant Velocity"
