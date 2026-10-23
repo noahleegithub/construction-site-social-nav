@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heterogeneous Trajectory Prediction and Social Navigation for Construction-Site Robots</title>
+<meta name="description" content="A closed-loop construction-site simulator and a joint diffusion predictor-planner for a robot sharing space with people and heavy equipment.">
+<style>
+  :root {
+    --ink: #1b232b;
+    --muted: #5b6772;
+    --rule: #e2e6ea;
+    --accent: #2f6f8f;
+    --bg: #ffffff;
+    --soft: #f5f7f9;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  header.masthead { border-bottom: 1px solid var(--rule); }
+  header.masthead .wrap {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; padding-top: 18px; padding-bottom: 18px; flex-wrap: wrap;
+  }
+  .brand { font-weight: 600; letter-spacing: .01em; color: var(--ink); text-decoration: none; }
+  nav.top a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 15px; }
+  nav.top a:hover { color: var(--accent); }
+  .hero { padding: 56px 0 8px; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .12em; font-size: 12px;
+    font-weight: 600; color: var(--accent); margin: 0 0 14px;
+  }
+  h1 { font-size: 2.25rem; line-height: 1.2; letter-spacing: -.015em; margin: 0 0 16px; font-weight: 700; }
+  .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 26px; max-width: 44em; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted);
+    padding: 16px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .meta a { color: var(--accent); text-decoration: none; }
+  .meta a:hover { text-decoration: underline; }
+  main { padding-bottom: 40px; }
+  h2 {
+    font-size: 1.45rem; letter-spacing: -.01em; margin: 56px 0 14px; font-weight: 700;
+    padding-top: 8px;
+  }
+  h3 { font-size: 1.05rem; margin: 32px 0 10px; font-weight: 650; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .88em; background: var(--soft); padding: .12em .35em; border-radius: 3px;
+  }
+  pre {
+    background: #1d2530; color: #e8edf2; padding: 18px 20px; border-radius: 8px;
+    overflow-x: auto; font-size: 13.5px; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  figure { margin: 26px 0 30px; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--rule); border-radius: 6px; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .tablewrap { overflow-x: auto; margin: 22px 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; background: var(--soft); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.hl td { font-weight: 600; }
+  .note {
+    border-left: 3px solid #d9b400; background: #fdf9e8; padding: 14px 18px;
+    font-size: 15px; margin: 20px 0 24px; border-radius: 0 4px 4px 0;
+  }
+  .cards { display: grid; gap: 18px; margin: 26px 0; }
+  .card {
+    border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; background: #fff;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 1rem; }
+  .card p { margin: 0; font-size: 15px; color: var(--muted); }
+  .gifs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin: 26px 0; }
+  .gifs figure { margin: 0; }
+  .gifs figcaption { margin-top: 8px; }
+  footer {
+    border-top: 1px solid var(--rule); background: var(--soft);
+    padding: 26px 0 34px; font-size: 14.5px; color: var(--muted);
+  }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--accent); text-decoration: none; }
+  @media (max-width: 560px) {
+    h1 { font-size: 1.7rem; }
+    body { font-size: 16px; }
+    .hero { padding-top: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="https://noahleegithub.github.io/">Noah Lee</a>
+    <nav class="top">
+      <a href="https://noahleegithub.github.io/projects/">Projects</a>
+      <a href="https://github.com/noahleegithub/construction-site-social-nav">Code</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <section class="hero">
+      <p class="eyebrow">Social navigation · Trajectory prediction</p>
+      <h1>Heterogeneous Trajectory Prediction and Social Navigation for Construction-Site Robots</h1>
+      <p class="lede">A closed-loop construction-site simulator and a joint diffusion predictor&ndash;planner, in which one robot crosses a site of workers and heavy equipment that do not share its physics, its field of view, or its obligations.</p>
+      <div class="meta">
+        <span><b>Solo project</b> &mdash; formulation, simulator, models, evaluation</span>
+        <span><b>2026</b></span>
+        <span><b>Stack</b> Python · NumPy · PyTorch · CVXOPT · Robotarium</span>
+        <span><a href="https://github.com/noahleegithub/construction-site-social-nav">Repository ↗</a></span>
+      </div>
+    </section>
+
+    <h2>The problem</h2>
+    <p>Most social-navigation benchmarks assume a crowd of interchangeable pedestrians. A construction site is not that. People and heavy equipment share the same ground under different physics and different obligations: a worker can stop and turn on the spot, a loaded vehicle has a multi-metre turning circle and cannot stop quickly, and no amount of politeness on the robot's side makes a reversing loader yield.</p>
+    <p>The asymmetry is the interesting part. Humans are assumed to yield to vehicles, so a site vehicle keeps its path and the robot must satisfy the safety constraint <em>alone</em>. The task is therefore not crowd avoidance in the abstract, but a robot that moves between workstations while reading who has right of way, who cannot see it, and who is not going to move at all.</p>
+
+    <figure>
+      <img src="figures/scene.png" alt="A generated construction worksite, 60 m across, with corridors, workstations, vision cones, blindspots and a planned robot route.">
+      <figcaption>A generated worksite, 60 m across: walkable corridors (light), off-corridor high-risk area (hatched), human and vehicle workstations, each agent's 60° field of view (pale yellow) and rear blindspot (pink), and the robot's planned route to its goal.</figcaption>
+    </figure>
+
+    <h2>Environment</h2>
+    <p>Sites are generated from a seed, so every result is reproducible and every failure has an address. A site is a graph: neutral junctions joined by walkable corridors, with workstations hanging off the graph as degree-1 leaves. Human corridors are narrow (3 m at the 60 m reference scale), vehicle corridors wide (9 m), and mesh corridors shared. Agents are sampled so that each of the 5&ndash;19 of them gets its own start station; when two share a destination they take berths either side of its spoke rather than stacking on one point.</p>
+    <p>Each agent cycles <code>working → moving → working</code> between two stations of its own kind. Humans are unicycles (1.4 m/s nominal, 120°/s turn limit); vehicles are bicycles with <code>ω = v·tan δ / L</code> steering (1.0 m/s nominal, 30° steering, 4.3 m turning circle). The vehicle is deliberately slower than the person &mdash; the constraint is geometry, not speed.</p>
+    <p>Every entity, including the robot, carries a collision radius <code>D_S</code> and a safety radius <code>D_C</code> (0.4 / 1.2 m for a human, 1.5 / 3.0 m for a vehicle). Humans have a 60° half-angle field of view and a rear blindspot cone; the robot only enters a human's avoidance constraints while it is inside that human's field of view, which is what produces the one-sided encounters a real site has.</p>
+    <p>Movement is pure pursuit along the route, projected through <b>ORCA</b> &mdash; optimal reciprocal collision avoidance. Reciprocity is where the site's rules live: 5 % of the recovery goes to a vehicle and 95 % to the human, like kinds split evenly, and a stationary neighbour absorbs none of it, so a moving agent takes the whole correction rather than driving through someone working. The robot takes the human side of every split.</p>
+    <p>Three details make ORCA survive nonholonomic bodies at a 0.5 s timestep: a two-phase update (snapshot all poses before commanding anyone, or reciprocity breaks), velocities that steering cannot realise within a step are scaled down instead of driven at full speed, and a coarse-step margin keeps the combined radius above one step of human travel. A contact fallback adds an exponential social force only inside the body-radius band and resolves residual overlap positionally &mdash; with the robot deliberately excluded, since robot-to-person contact is the quantity under evaluation and suppressing it would make the metric vacuous.</p>
+    <p>All lengths and speeds derive from the arena size, so the same code drives a 60 m site and a 3 m miniature that fits the Robotarium's physical arena.</p>
+
+    <h2>Method</h2>
+    <p>The predictor is <b>joint</b> over <code>N = M + 1</code> entities &mdash; every agent and the robot &mdash; and scale-free, since positions are normalised by arena size. That single representation is what lets prediction and planning share information instead of handing trajectories across a boundary.</p>
+
+    <figure>
+      <img src="figures/pipeline.png" alt="Five-stage pipeline: scene context encoding, PCA trajectory compression, diffusion process, constrained and guided sampling, permutation-invariant joint decoding.">
+      <figcaption>Predictor and planner share one representation: scene context is encoded once, futures are denoised jointly for every agent <em>and</em> the robot, and safety is applied during sampling rather than after it.</figcaption>
+    </figure>
+
+    <p>Three predictors sit behind one interface:</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Constant velocity</h3>
+        <p>The baseline, and the prior the learned models are built on.</p>
+      </div>
+      <div class="card">
+        <h3>Reduced Trajectron++</h3>
+        <p>Joint encoder plus a discrete conditional VAE over interaction modes, trained with reconstruction and categorical KL.</p>
+      </div>
+      <div class="card">
+        <h3>MotionDiffuser-style diffusion</h3>
+        <p>GRU history encoder (history, last position, velocity, kind and state embeddings) feeding a transformer block over entity tokens, so agents attend to one another; DDIM sampling returns <code>K</code> multimodal futures.</p>
+      </div>
+    </div>
+    <p>Three choices matter on a CPU budget: x₀-prediction instead of noise-prediction, a cosine noise schedule so the last step really is pure noise, and diffusing the <em>residual over the constant-velocity prior</em>, so capacity is spent on interaction-driven corrections rather than on relearning smooth motion.</p>
+    <p>The planner couples to the predictor at sampling time. In its <code>safety_diffusion</code> mode the sampler is conditioned on the robot's intended route: the joint sample is inpainted so the robot's row is pinned, the agents are generated conditioned on that row, and the robot's rows are projected onto the hard-constraint safe set <b>inside reverse diffusion</b>. A per-class <code>D_S</code>/<code>D_C</code> filter runs afterwards. Safety is thus a property of the sampled plan, not a post-hoc patch. An <code>oracle</code> variant replaces the predictor with perfect future knowledge, giving an upper bound on what the same controller achieves if prediction were free.</p>
+
+    <h2>Results</h2>
+    <p>Five planners, checkpoint-free, on out-of-sample seeds 100&ndash;115 (<code>M = 7</code>, two goals per trial, 16 trials each). Every planner reaches both goals, so the differences are in safety and cost <code>J = T_travel + λ₁∫max(0, −h_C)dt + λ₂T_freeze</code>.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Planner</th><th>Prediction</th><th class="num">Success</th>
+            <th class="num">Contact events</th><th class="num">Steps in contact</th>
+            <th class="num">J</th><th class="num">Travel (s)</th><th class="num">Intrusion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Pursuit, no avoidance</td><td>none</td><td class="num">100%</td><td class="num">11</td><td class="num">24</td><td class="num">90.58</td><td class="num">82.2</td><td class="num">8.36</td></tr>
+          <tr><td><b>ORCA</b></td><td>none</td><td class="num">100%</td><td class="num">1</td><td class="num">2</td><td class="num">93.13</td><td class="num">85.1</td><td class="num">7.99</td></tr>
+          <tr><td>ORCA + constant-velocity forecast</td><td>CV</td><td class="num">100%</td><td class="num">1</td><td class="num">2</td><td class="num">91.67</td><td class="num">85.2</td><td class="num">6.42</td></tr>
+          <tr><td>Fixed-radius + perfect forecast</td><td>perfect</td><td class="num">100%</td><td class="num">0</td><td class="num">0</td><td class="num">90.20</td><td class="num">86.1</td><td class="num">4.11</td></tr>
+          <tr><td>MPC + perfect forecast</td><td>perfect</td><td class="num">100%</td><td class="num">2</td><td class="num">2</td><td class="num"><b>88.58</b></td><td class="num">86.4</td><td class="num"><b>1.97</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:14px;color:#5b6772;margin-top:8px;">Contact events count one incident per agent per episode &mdash; an agent held inside the hard radius for ten steps is one event, not ten; &ldquo;steps&rdquo; counts 0.5 s control steps in which any agent was inside its <code>D_S</code>.</p>
+
+    <figure>
+      <img src="figures/planner_comparison.png" alt="Bar charts of contact events, cost J, intrusion integral and travel time for the five planners.">
+      <figcaption>The same trials as bars. The best <code>J</code> is not the safest row: cost trades travel time against intrusion, exactly as the objective intends.</figcaption>
+    </figure>
+
+    <p>Three findings are worth stating plainly.</p>
+    <p><b>The crowd absorbs the robot.</b> Doing nothing at all yields 11 contact events; doing what every other agent does &mdash; running the same ORCA policy &mdash; yields 1, for about 3 s of extra travel. A robot that behaves like a well-mannered peer is already most of the way there, and that is the baseline any learned planner has to beat.</p>
+    <p><b>Prediction buys distance, not non-collision.</b> ORCA with a constant-velocity forecast does not change the contact count at all (1 → 1), yet cuts the intrusion integral from 7.99 to 6.42 and <code>J</code> from 93.13 to 91.67. Having a future available to the controller changes &ldquo;does not hit&rdquo; into &ldquo;keeps its distance&rdquo;.</p>
+    <p><b>The residual contacts are geometry, not policy.</b> The perfect-knowledge row still records two events, and both are workers walking into the robot from <em>outside their own field of view</em> (bearings +122° and +140°, against a 60° half-angle) while the robot was stopped or crawling. The barrier <code>h_S = ‖p_R − p_m‖² − D_S²</code> is symmetric but the actuator is not: the planner can decline to enter someone's space, it cannot step out of it within 0.5 s. Penetration in those two episodes was 0.6 cm and 2.7 cm.</p>
+
+    <h3>Predictor benchmark &mdash; preliminary</h3>
+    <p>Open-loop ADE/FDE on held-out scenes, best-of-<code>K</code>, <code>M = 7</code>:</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Model</th><th class="num">ADE H=1</th><th class="num">ADE H=4</th><th class="num">ADE H=16</th><th class="num">FDE H=16</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Constant velocity</td><td class="num"><b>0.15</b></td><td class="num"><b>0.48</b></td><td class="num">2.71</td><td class="num">5.97</td></tr>
+          <tr><td>Trajectron++ (reduced)</td><td class="num">0.40</td><td class="num">0.78</td><td class="num">2.68</td><td class="num">5.30</td></tr>
+          <tr><td>Diffusion (K=6)</td><td class="num">0.58</td><td class="num">0.62</td><td class="num"><b>2.28</b></td><td class="num"><b>4.59</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Constant velocity wins at short horizons because the motion is smooth at <code>dt = 0.5 s</code>; the joint models win at long horizons and as the crowd grows, where interaction structure is all there is to model.</p>
+    <div class="note"><b>Preliminary numbers.</b> These predate the switch to ORCA agents and were measured against the previous social-force dynamics, so they indicate trend rather than serve as a final benchmark. Retraining and re-running the sweep against the current simulator is in progress; the repository README marks the same caveat.</div>
+
+    <h2>On the Robotarium</h2>
+    <p>The site maps into the Robotarium arena under a single uniform scale, with the robot <em>and</em> all agents instantiated as physical-style unicycle robots driven by the same route-following and ORCA controllers. Two approximations are documented rather than hidden: the Robotarium simulates only unicycles, so bicycles are reduced to their curvature-equivalent turn rate, and its robots are ~0.11 m in diameter, so agents' collision radii are floored at the physical robot's size or the simulator's own checks fire constantly.</p>
+    <p>Each demo seed is chosen by ranking candidate seeds on a cheap site-frame trial (goal reached, no collisions, closest encounter of the requested kind) and confirming the first survivor on the Robotarium &mdash; 24 candidates by default. All three demos below reach the goal with zero <code>robots_too_close</code>, zero out-of-boundary and zero actuator-limit violations reported by the simulator.</p>
+
+    <div class="gifs">
+      <figure>
+        <img src="figures/demo_social_navigation.gif" alt="Animation of the robot crossing the site while agents work and travel.">
+        <figcaption><b>Crossing the site</b> while agents work and travel &mdash; minimum encounter 0.57 m.</figcaption>
+      </figure>
+      <figure>
+        <img src="figures/demo_human_encounter.gif" alt="Animation of the robot passing a worker who yields.">
+        <figcaption><b>Passing a worker</b> who must yield &mdash; minimum encounter 0.37 m.</figcaption>
+      </figure>
+      <figure>
+        <img src="figures/demo_vehicle_encounter.gif" alt="Animation of the robot meeting a site vehicle that does not yield.">
+        <figcaption><b>Meeting a site vehicle</b> that will not yield &mdash; minimum encounter 0.83 m.</figcaption>
+      </figure>
+    </div>
+
+    <h2>Reproducing it</h2>
+<pre><code>git clone https://github.com/noahleegithub/construction-site-social-nav
+cd construction-site-social-nav
+python -m venv .venv &amp;&amp; .venv/bin/pip install -e ".[dev,ml]"
+.venv/bin/pip install "git+https://github.com/robotarium/robotarium_python_simulator"
+
+# one closed-loop trial, with animation
+python -m construction_nav trial --seed 0 --agents 7 --planner joint --animate
+# the planner table above
+python scripts/evaluate_planners.py --baselines-only --agents 7 --trials 16
+# Robotarium social-navigation demos
+python -m construction_nav robotarium --agents 5 --planner joint --seeds 24</code></pre>
+    <p>The package runs without PyTorch for everything except the learned predictors, and the test suite covers dynamics integration, scene invariants, scale invariance, the metric closed forms, and an end-to-end Robotarium smoke test.</p>
+
+    <h2>Limitations</h2>
+    <p>The site frame is simulation, and the hardware validation is a miniature arena with scaled agents &mdash; the right next step is a physical site robot with real perception, not a larger simulation. Vehicle dynamics are kinematic (bicycle model) rather than dynamic, so momentum and load effects are out of scope. And the predictor numbers above are, as noted, pending retraining against the current agent policy.</p>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Noah Lee &mdash; 2026</span>
+    <span><a href="https://noahleegithub.github.io/projects/">More projects</a> · <a href="https://github.com/noahleegithub/construction-site-social-nav">Source and full documentation</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

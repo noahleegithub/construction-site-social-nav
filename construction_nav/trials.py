@@ -1,4 +1,4 @@
-"""Randomized-trial evaluation of robot planners (proposal Section 5).
+"""Randomized-trial evaluation of robot planners (design Section 5).
 
 Runs a planner on a batch of randomized construction sites and aggregates the
 Eq. (3) cost ``J = T_travel + lambda_1 * integral(max(0, -h_C)) + lambda_2 * T_freeze``

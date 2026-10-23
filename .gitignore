@@ -31,5 +31,5 @@ data/processed/
 .idea/
 .vscode/
 
-# Local course/lab artifacts
+# Local scratch renders
 figures/midterm/

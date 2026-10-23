@@ -1,6 +1,6 @@
 """Constant-velocity baseline predictor.
 
-The proposal's first baseline (Section 5). Each agent's velocity is estimated by
+The simplest baseline (Section 5). Each agent's velocity is estimated by
 finite differences on its observed history and extrapolated linearly. The
 including-the-robot forecast is just the robot's own history extrapolated.
 """

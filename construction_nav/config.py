@@ -10,7 +10,7 @@ arena with its ~0.11 m robots.
 Time is not scaled: arcs take the same wall-clock time at every size, and angular
 limits / controller gains are dimensionless, so they are shared constants.
 
-Sections map to the proposal:
+Sections map to the design:
 
     arena / graph layout      -> Section 3 (environment simulation)
     dynamics limits           -> Section 2 (unicycle humans, bicycle vehicles)

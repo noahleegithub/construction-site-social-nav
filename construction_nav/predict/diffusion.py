@@ -1,4 +1,4 @@
-"""MotionDiffuser-style conditional diffusion predictor (proposal Section 4).
+"""MotionDiffuser-style conditional diffusion predictor (design Section 4).
 
 A *joint*, natively-multimodal model: one denoiser over all ``N = M + 1`` entities
 (the agents **and** the robot), conditioned on their observed histories. Self

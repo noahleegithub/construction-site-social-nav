@@ -1,4 +1,4 @@
-"""Reduced Trajectron++ baseline (proposal Section 5).
+"""Reduced Trajectron++ baseline (design Section 5).
 
 An in-repo, CPU-sized re-implementation of the essential Trajectron++ ingredients:
 a recurrent history encoder, a **discrete conditional VAE** (a categorical latent

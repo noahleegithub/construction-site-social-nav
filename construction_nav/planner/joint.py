@@ -1,4 +1,4 @@
-"""Joint predictor + planner for social navigation (proposal Section 4).
+"""Joint predictor + planner for social navigation (design Section 4).
 
 The planner couples the learned *joint* predictor to a safety-filtered
 model-predictive controller:
@@ -22,7 +22,7 @@ model-predictive controller:
    the hard constraint against the *real* state even when the forecast is wrong.
 
 ``oracle=True`` replaces the predictor with perfect future knowledge, giving the
-proposal's perfect-knowledge planner baseline on the same controller.
+perfect-knowledge planner baseline on the same controller.
 """
 
 from __future__ import annotations

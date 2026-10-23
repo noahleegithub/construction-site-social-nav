@@ -7,7 +7,7 @@ identical and the only difference in the picture is the robot's policy.
     python scripts/make_baseline_gifs.py --situation all
     python scripts/make_baseline_gifs.py --situation head_on_pedestrian --steps 400
 
-Seeds come from ``figures/midterm/situations.json`` (written by
+Seeds come from ``figures/baselines/situations.json`` (written by
 ``scripts/find_situations.py``); pass ``--rescan`` to rebuild that file first.
 """
 

@@ -21,7 +21,7 @@ Scores are ``(peak closeness)`` for the first three and the intrusion integral
 for the crowd, so the maximum is the most legible example rather than merely the
 first one that trips the test.
 
-    python scripts/find_situations.py --out figures/midterm/situations.json
+    python scripts/find_situations.py --out figures/baselines/situations.json
 """
 
 from __future__ import annotations

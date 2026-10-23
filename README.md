@@ -1,6 +1,8 @@
 # Heterogeneous Trajectory Prediction and Social Navigation for Construction Site Robots
 
-CSCE 689 course project. One robot navigates a **graph-structured construction
+**Project page:** <https://noahleegithub.github.io/construction-site-social-nav/> · the page source lives in [`docs/`](docs/).
+
+One robot navigates a **graph-structured construction
 worksite** toward a goal while `5 <= M <= 19` heterogeneous agents work at and
 travel between stations. Agents are **humans** (unicycle dynamics) or **vehicles**
 (bicycle dynamics); they alternate between working and moving, have vision cones
@@ -10,7 +12,7 @@ observes agent histories, forecasts their futures
 (ADE / FDE), plans a socially compliant path, and is evaluated both in the native
 simulation and on the **Robotarium** simulator.
 
-The design follows the proposal's sections:
+Code map:
 
 | Section | Topic | Where |
 |---|---|---|
@@ -198,7 +200,7 @@ the ORCA velocity, and any residual overlap is resolved positionally.
   out and then drift, and any later correction would snap them home from metres
   away.
 
-## Metrics (proposal Eqs. 1–3)
+## Metrics
 
 - `ade(pred, gt)` / `fde(pred, gt)` — mean / final displacement error.
 - `min_ade` / `min_fde` — best-of-K over multimodal samples (K=1 for unimodal).
@@ -253,7 +255,7 @@ trajectory per mode with the prior's mode probabilities as weights.
 
 ## Planner: joint predictor + planner
 
-`planner/joint.py` implements the proposal's coupled predictor+planner. At every
+`planner/joint.py` implements the coupled predictor+planner. At every
 step it:
 
 1. **Predicts** the agents with the multimodal predictor (constant velocity,
@@ -276,7 +278,7 @@ step it:
    manoeuvre is feasible it maximises clearance instead of progress.
 
 `oracle=True` replaces the predictor with perfect future knowledge, giving the
-proposal's perfect-knowledge planner; combined with the `predictor=` variants this
+perfect-knowledge planner; combined with the `predictor=` variants this
 is exactly the "predictor quality vs planner" ablation.
 
 ## Baselines
@@ -544,8 +546,7 @@ checkpoints/        trained model weights (git-ignored)
 
 ## Roadmap
 
-The three vertical slices in the proposal are implemented. Natural next steps,
-deliberately left out of the course timeline:
+Implementation is complete across the three vertical slices. Natural next steps:
 
 - Full-scale MotionDiffuser (per-agent transformers, latent maps) and the optional
   speculative-decoding experiment.
@@ -576,7 +577,7 @@ deliberately left out of the course timeline:
   the GRITSbot body, which is larger than the scaled agents, so the site-frame
   metrics (Eq. 2/3) are the authoritative safety measures.
 - Full-scale MotionDiffuser replication (and the optional speculative-decoding
-  experiment) is out of scope for the course timeline; the diffusion model is
+  experiment) is out of scope; the diffusion model is
   deliberately small and CPU-trainable.
 - Constant velocity is a strong baseline at short horizons on this data (smooth,
   near-constant-velocity motion at `dt = 0.5 s`), so the learned models are most
